@@ -68,7 +68,7 @@ FILE=none
 CONTENT=0 
 EMPTY=0
 # User agent with setting cause pb with blank
-WGETDEFAULT='--user-agent=ALSEIS-testing-tool --delete-after' 
+WGETDEFAULT='--user-agent=ALSEIS-testing-tool --delete-after -e robots=off' 
 
 while getopts dD:ef:hp: sarg
 do
@@ -128,7 +128,17 @@ else
 	DOMAIN=$(echo $URL | cut -d '/' -f 3)
 	printf "%-40s : %-10s : %-10s : %-10s : %-10s : %-30s\n" "Requested URL" "#elements" "Total size" "Elapsed time" "Biggest obj size"  "biggest component" 
 	#checkurl
-	wget ${WGETDEFAULT:=""} --domains $DOMAIN --page-requisites -nv $URL 2>&1  | awk -F ' ' '{printf "%s %s\n",$3,$4}' | grep URL | sed 's:.*//\(.*\) \[\(.*\)/.*:\2 \t \1 :'  | sort -n
+	#wget ${WGETDEFAULT:=""} --domains $DOMAIN --page-requisites -nv $URL 2>&1  | awk -F ' ' '{printf "%s %s\n",$3,$4}' | grep URL | sed 's:.*//\(.*\) \[\(.*\)/.*:\2 \t \1 :'  | sort -n	
+	# Change pattern to match the first number in bracket (which is the size of total)
+	SUM=0
+	wget ${WGETDEFAULT:=""} --domains $DOMAIN --page-requisites -nv $URL 2>&1  | awk -F ' ' '{printf "%s %s\n",$3,$4}' | grep URL | sed 's:.*//\(.*\) \[\([0-9]*\).*:\2 \t \1 :'  | sort -n \
+	|while read line ;
+	do
+		I=$(echo $line | awk '{print $1}')
+		SUM=$(($I + $SUM))
+		echo "$line"
+	done
+	printf "%-40s : %-10s \n" "Total page size is : $SUM"
 fi
 
 
