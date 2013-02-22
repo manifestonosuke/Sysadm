@@ -6,13 +6,15 @@ PRGNAME=`basename $0 |  awk -F '.' '{print $1}'`
 
 function usage {
 cat << fin
-$PRGNAME [ -f file ] [ -p URL] | URL
+$PRGNAME [ -f file ] [ -p URL] [-l N] | URL
 Get URL from remote site and display statistics 
         -d      debug mode
 	-e	Dont display empty file (file with no contents or 30x)
+	-l	Loop N time (only valid with an URL file -f parameter) 
+	-F	Force to download fonts and other usually stored in the browser files  (by default do not load $FONTS files)
         -f      URL file to be parsed and output summary for each URL
         -h      This page 
-	-p	Just display page content for this URL 
+	-p	Just display page content for this URL
 if -f is used URL is ignored 
 if URL is used then it will show a summary of all elements of 1 page 
 fin
@@ -31,14 +33,13 @@ export SIZE
 export NB
 export MAX
 export BIGURL
-
 #echo 'Requested URL ::: #elements : Total downloaded size : Elapsed time : Component max size : biggest component' 
 NOW=$(date +%s)
-wget ${WGETDEFAULT:=""} --tries=1 --max-redirect=1 --domains $DOMAIN --page-requisites -nv $URL 2>&1 | awk -F ' ' '{printf "%s %s\n",$3,$4}' | grep URL | while read a  
+wget ${WGETDEFAULT:=""} --tries=1 --max-redirect=1 --domains $DOMAIN --page-requisites -nv $URL 2>&1 | awk -F ' ' '{printf "%s %s\n",$3,$4}' | grep URL | while read element  
 do 
 	AFTER=$(date +%s)	
-	__SIZE=$(echo "$a" | awk '{print $2}' | sed 's/.*\[\([0-9]*\).*/\1/g') 
-	__URL=$(echo "$a" | awk '{print $1}' |cut -d / -f 3-) 
+	__SIZE=$(echo "$element" | awk '{print $2}' | sed 's/.*\[\([0-9]*\).*/\1/g') 
+	__URL=$(echo "$element" | awk '{print $1}' |cut -d / -f 3-) 
 	
 	NB=$(($NB + 1)) 
 	if [ $__SIZE -gt $MAX ];
@@ -67,10 +68,10 @@ fi
 FILE=none 
 CONTENT=0 
 EMPTY=0
-# User agent with setting cause pb with blank
-WGETDEFAULT='--user-agent=ALSEIS-testing-tool --delete-after -e robots=off' 
+LOOP=1
+FONTS="eot,ttf,woff,svg"
 
-while getopts dD:ef:hp: sarg
+while getopts dD:ef:Fhl:p: sarg
 do
 case $sarg in
 	D)	DOMAIN=$OPTARG ;;
@@ -80,6 +81,8 @@ case $sarg in
         f)      FILE=$OPTARG ;; 
         h)      usage
                 end;;
+	F)	FONTS="" ;;
+	l)	LOOP=$OPTARG ;;
 	p)	URL=$OPTARG
 		CONTENT=1  ;;
         v)      VERBOSE=1 ;;
@@ -90,6 +93,16 @@ esac
 done
 
 shift $(($OPTIND - 1))
+
+# User agent with setting cause pb with blank
+# USERAGENT="Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)"
+WGETREJECT="-R $FONTS"
+WGETDEFAULT='--user-agent=ALSEIS-testing-tool --delete-after -e robots=off' 
+WGETDEFAULT='-U Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0) -l 1 --delete-after -e robots=off' 
+if [ ! ${FONTS:=NULL} == "NULL" ]; 
+then
+	WGETDEFAULT="$WGETDEFAULT $WGETREJECT"
+fi
 
 if [ $CONTENT == 1 ] ; 
 then
@@ -112,13 +125,21 @@ then
 		echo "$FILE file not found"
 		exit
 	fi
-	printf "%-40s : %-10s : %-10s : %-10s : %-10s : %-30s\n" "Requested URL" "#elements" "Total size" "Elapsed time" "Biggest obj size"  "biggest component" 
-	while read line 
+	printf "%-40s : %-10s : %-10s : %-10s : %-10s : %-30s\n" "Requested URL" "#elements" "Total size" "Elapsed time" "Biggest obj size"  "biggest component" 	
+	if [ $LOOP -lt 1 ];
+	then
+		echo "ERROR : loop argument is too small"
+		exit
+	fi
+	for THISLOOP in $(seq 1 $LOOP);
 	do
-		DOMAIN=$(echo $line | cut -d '/' -f 3)
-		URL=${line}
-		checkurl
-	done < $FILE 
+		while read line 
+		do
+			DOMAIN=$(echo $line | cut -d '/' -f 3)
+			URL=${line}	
+			checkurl
+		done < $FILE 
+	done
 else
 	if [ ${URL:=empty} == 'empty' ];
 	then
