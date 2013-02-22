@@ -15,13 +15,50 @@ Get URL from remote site and display statistics
         -f      URL file to be parsed and output summary for each URL
         -h      This page 
 	-p	Just display page content for this URL
+	-X	exclude proxy settings
 if -f is used URL is ignored 
 if URL is used then it will show a summary of all elements of 1 page 
 fin
 }
 
+__print() {
+if [ ${PRGNAME:=NULL} == "NULL" ] ;
+then
+        echo "ERROR __print function exiting"
+        exit 99
+fi
+__label=$1
+shift
+if [ ${SILENT:=0} -ne 1 ];
+then
+        printf "%-10s %-10s %-22s %-30s \n" "$PRGNAME : " "$__label : " "$*"
+        #echo $*
+fi
+}
+
+amiroot() {
+CMD=/usr/bin/whoami
+if [ ! -x $CMD ];
+then
+        __print "ERROR" "cant get root status"
+        end 2
+else
+        __DUM=$(/usr/bin/whoami)
+        if [ ${__DUM:=NULL} == "root" ];
+        then
+                __print "INFO"  "You are root, continue"
+        else
+                __print "ERROR"  "Need to be root to run this"
+                end 2
+        fi
+fi
+}
+
+
 function end {
-exit
+OUT=""
+[[ $# -ne 0 ]] && OUT=$#
+exit $OUT
 }
 
 function checkurl {
@@ -48,11 +85,8 @@ do
 		BIGURL=$__URL
 	fi
 	SIZE=$(($SIZE+$__SIZE))
-	#echo "$NB :: $SIZE :: $__SIZE :: $BIGURL"
-	#echo "$NB Pages for total $SIZE and bigger page is $MAX size ($BIGURL)" 
 done
 ELAPSED=$(($AFTER - $NOW))
-#echo "$URL ::: $NB Pages for total $SIZE in $ELAPSED seconds biggest size $MAX ($BIGURL)" 
 if [ ${BIGURL:=dummy} == "dummy" ] ; 
 then
 	if [ $EMPTY -eq 0 ];
@@ -62,7 +96,6 @@ then
 else
 	printf "%-40s : %-10s : %-10s : %-10s : %-10s : %-30s\n" "$URL" "$NB" "$SIZE" "$ELAPSED" "$MAX" "$BIGURL" 
 fi
-#echo "$URL ::: $NB : $SIZE : $ELAPSED : $MAX : $BIGURL" 
 }
 
 FILE=none 
@@ -70,8 +103,9 @@ CONTENT=0
 EMPTY=0
 LOOP=1
 FONTS="eot,ttf,woff,svg"
+XPROXY=0
 
-while getopts dD:ef:Fhl:p: sarg
+while getopts dD:ef:Fhl:p:X sarg
 do
 case $sarg in
 	D)	DOMAIN=$OPTARG ;;
@@ -86,6 +120,7 @@ case $sarg in
 	p)	URL=$OPTARG
 		CONTENT=1  ;;
         v)      VERBOSE=1 ;;
+	X)	XPROXY=1 ;;
         *)      echo "ERROR : $PRGNAME : Bad option or misusage"
                 usage
                 end ;;
@@ -93,6 +128,13 @@ esac
 done
 
 shift $(($OPTIND - 1))
+
+env | grep -i http_proxy > /dev/null 2>&1 
+if [[ $? -eq 0 && XPROXY -eq 0 ]] ; 
+then
+	__print "WARNING" "$PRGNAME" "Proxy is set"
+fi
+
 
 # User agent with setting cause pb with blank
 # USERAGENT="Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)"
@@ -103,6 +145,8 @@ if [ ! ${FONTS:=NULL} == "NULL" ];
 then
 	WGETDEFAULT="$WGETDEFAULT $WGETREJECT"
 fi
+
+[[ $XPROXY -eq 1 ]] && WGETDEFAULT="$WGETDEFAULT --no-proxy"
 
 if [ $CONTENT == 1 ] ; 
 then
@@ -122,14 +166,14 @@ if [ ${FILE:=none} != 'none'  ];
 then
 	if [ ! -f $FILE ];
 	then
-		echo "$FILE file not found"
-		exit
+		__print "ERROR" "$FILE file not found"
+		end 1
 	fi
 	printf "%-40s : %-10s : %-10s : %-10s : %-10s : %-30s\n" "Requested URL" "#elements" "Total size" "Elapsed time" "Biggest obj size"  "biggest component" 	
 	if [ $LOOP -lt 1 ];
 	then
-		echo "ERROR : loop argument is too small"
-		exit
+		__print "ERROR" "loop argument is too small"
+		end 1 
 	fi
 	for THISLOOP in $(seq 1 $LOOP);
 	do
@@ -143,7 +187,7 @@ then
 else
 	if [ ${URL:=empty} == 'empty' ];
 	then
-		echo "ERROR no URL set"	
+		__print  "ERROR" "no URL set"	
 		end
 	fi
 	DOMAIN=$(echo $URL | cut -d '/' -f 3)
@@ -159,8 +203,5 @@ else
 		SUM=$(($I + $SUM))
 		echo "$line"
 	done
-	printf "%-40s : %-10s \n" "Total page size is : $SUM"
+	__print "INFO" "Total page size is $SUM"
 fi
-
-
-
