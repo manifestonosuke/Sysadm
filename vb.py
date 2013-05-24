@@ -77,9 +77,78 @@ class __print():
 		if DEBUG != 0 :
 			print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
 
+def parseargs(argv):
+	#print "Parsing args",argv,"loop"
+	try:
+		opts, args = getopt.getopt(argv, "dG:hO:lp:r:R:s:S:v0:", ["help"])
+	except getopt.GetoptError:
+		usage()
+		sys.exit(2)
+	#print "Parsing opt",opts,"arg",args
+	for opt, arg in opts:
+		if opt in ("-h", "--help"):
+			usage()
+			sys.exit()
+		elif opt == '-d':
+			global DEBUG
+			DEBUG = 1
+		elif opt == '-G':
+			_vb.setvrde()
+		elif opt == 'O' :
+			_vb.guest_acpidown(arg)
+		elif opt == 'l' :
+			_vb.list()
+		elif opt == 'p' :
+			_vb.guest_pause(arg)
+		elif opt == 'r' :
+			_vb.guest_resume(arg)
+		elif opt == 'R' : 
+			_vb.guest_reset(arg)
+		elif opt == 's' :
+			_vb.guest_start(arg)
+		elif opt == 'S' :
+			_vb.guest_status(arg)
+		elif opt == 'v' :
+			global VERBOSE
+			VERBOSE=1
+		elif opt == 0 :
+			_vb.guest_poweroff(arg)
+		else: 
+			message="Argument "+opt+"not valid"
+			__print.normal(PRGNAME,message)
+			usage()
+
+class _vb:
+	def setvrde():
+		pass
+	def guest_acpidown(arg):
+		pass
+	def list():
+		pass
+	def guest_pause(arg):
+		pass
+	def guest_resume(arg):
+		pass
+	def guest_reset(arg):
+		pass
+	def guest_start(arg):
+		pass
+	def guest_status(arg):
+		pass
+	def guest_poweroff(arg):
+		pass
+
+if (len(sys.argv) == 1) :
+	__print.debug(PRGNAME,"argument parsing, only 1 arg")
+	_vb.list()
+else:
+        parseargs(sys.argv[1:])
+
+
 
 if __name__ == '__main__':
 	message="Starting "+PRGNAME
 	__print.debug(PRGNAME,message)
 
-usage()
+#usage()
+
