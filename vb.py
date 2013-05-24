@@ -118,6 +118,35 @@ def parseargs(argv):
 			__print.normal(PRGNAME,message)
 			usage()
 
+def execute(command, display=False):
+	global PRGNAME
+	__print.debug(PRGNAME+"execute","Executing : %s " % command)
+	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.ERR)
+	if display:
+		while True:
+			nextline = process.stdout.readline()
+			if nextline == '' and process.poll() != None:
+                		break
+			sys.stdout.write(nextline)
+			sys.stdout.flush()
+
+		output, stderr = process.communicate()
+		exitCode = process.returncode
+	else:
+		output, stderr = process.communicate()
+		exitCode = process.returncode
+
+	if (exitCode == 0):
+		return output.strip()
+	else:
+		print("Error", stderr)
+		print("Failed to execute command %s" % command)
+		print(exitCode, output)
+		raise Exception(output)
+
+
+
+
 class _vb:
 	def setvrde():
 		pass
