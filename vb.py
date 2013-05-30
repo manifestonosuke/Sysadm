@@ -9,6 +9,7 @@ import sys
 import os
 import getopt
 import signal
+import subprocess
 
 PRGNAME=os.path.basename(sys.argv[0])
 if "DEBUG" in os.environ:
@@ -56,9 +57,12 @@ Run without arg will list vbox on the machine
 	print(message)	
 	
 	
+def end(code=0):
+	#print("exit code %i " % code)
+	sys.exit(code)
 
 
-class __print():
+class logit():
 	"""
 	print standard format with level : programme : message
 	extra is optionnal arg to deal with extra behaviour 
@@ -74,17 +78,23 @@ class __print():
 		print("%-10s : %-10s : %-30s" % ("INFO",p,m))
 
 	def debug(p,m):
-		if DEBUG != 0 :
+		if DEBUG == 1:
 			print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
 
 def parseargs(argv):
-	#print "Parsing args",argv,"loop"
+	logit.debug(PRGNAME+"...parseargs","Parsing args")
+	if len(sys.argv) == 1:
+		logit.debug(PRGNAME,"argument parsing, only 0 arg")
+		vmlist=vbclt.list()
+		logit.info(PRGNAME,vmlist)
+		end()
 	try:
 		opts, args = getopt.getopt(argv, "dG:hO:lp:r:R:s:S:v0:", ["help"])
+		logit.debug(PRGNAME," : "+str(opts)+" : "+str(args))
 	except getopt.GetoptError:
+		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
 		sys.exit(2)
-	#print "Parsing opt",opts,"arg",args
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
@@ -93,91 +103,115 @@ def parseargs(argv):
 			global DEBUG
 			DEBUG = 1
 		elif opt == '-G':
-			_vb.setvrde()
-		elif opt == 'O' :
-			_vb.guest_acpidown(arg)
-		elif opt == 'l' :
-			_vb.list()
-		elif opt == 'p' :
-			_vb.guest_pause(arg)
-		elif opt == 'r' :
-			_vb.guest_resume(arg)
-		elif opt == 'R' : 
-			_vb.guest_reset(arg)
-		elif opt == 's' :
-			_vb.guest_start(arg)
-		elif opt == 'S' :
-			_vb.guest_status(arg)
-		elif opt == 'v' :
+			vbclt.setvrde()
+		elif opt == '-O' :
+			vbclt.guest_acpidown(arg)
+		elif opt == '-l' :
+			rez=vbclt.list()
+			logit.info(PRGNAME,rez)
+			sys.exit(0)
+		elif opt == '-p' :
+			vbclt.guest_pause(arg)
+		elif opt == '-r' :
+			vbclt.guest_resume(arg)
+		elif opt == '-R' : 
+			vbclt.guest_reset(arg)
+		elif opt == '-s' :
+			rez=vbclt.guest_start(arg)
+		elif opt == '-S' :
+			vbclt.guest_status(arg)
+		elif opt == '-v' :
 			global VERBOSE
 			VERBOSE=1
 		elif opt == 0 :
-			_vb.guest_poweroff(arg)
+			vbclt.guest_poweroff(arg)
 		else: 
-			message="Argument "+opt+"not valid"
-			__print.normal(PRGNAME,message)
-			usage()
+			message="Argument "+opt+" not valid"
+			logit.info(PRGNAME,message)
+			#usage()
+			#sys.exit(1)
 
-def execute(command, display=False):
+def execute(command, option=False):
 	global PRGNAME
-	__print.debug(PRGNAME+"execute","Executing : %s " % command)
-	process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.ERR)
-	if display:
-		while True:
-			nextline = process.stdout.readline()
-			if nextline == '' and process.poll() != None:
-                		break
-			sys.stdout.write(nextline)
-			sys.stdout.flush()
+	DEBUGNAME=PRGNAME+"..execute"
+	logit.debug(DEBUGNAME,"Executing : "+command)
 
-		output, stderr = process.communicate()
-		exitCode = process.returncode
+	if option == "DETACHED_PROCESS":
+		logit.debug(DEBUGNAME,"Process detached")
+		#option="creationflags=0x00000008"
+		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,creationflags=0x00000008)
+	else: 
+		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+	stdout,stderr=ps.communicate()
+	retcode = ps.returncode
+	if (retcode != 0):
+		logit.debug(PRGNAME,"Executing  %s " % command)
+		logit.debug(DEBUGNAME,"return message is : "+str(stderr))
+		message="Error executing "+command
+		raise Exception(message)
 	else:
-		output, stderr = process.communicate()
-		exitCode = process.returncode
+		return stdout
 
-	if (exitCode == 0):
-		return output.strip()
-	else:
-		print("Error", stderr)
-		print("Failed to execute command %s" % command)
-		print(exitCode, output)
-		raise Exception(output)
-
-
-
-
-class _vb:
+class vbclt():
+	global PRGNAME
+	def __init__(self,a):
+		arg=a
 	def setvrde():
-		pass
+		passa
+	def exist(arg):
+		logit.debug(PRGNAME,"checking if "+arg+" exist")
+		list=vbclt.list()
+		logit.debug(PRGNAME,"vbox list "+list)
+		found=0
+		for i in list.split():
+			if i == arg :
+				found=1
+				break
+		return found 
 	def guest_acpidown(arg):
 		pass
 	def list():
-		pass
+		cmd="VBoxManage list vms"
+		output=execute(cmd).decode("utf-8")
+		list=output.split("\n")[::]
+		message=""
+		for el in list:
+			if len(el) != 0:	
+				message=el.split('"')[1]+" "+message
+		#print(message)
+		return(message)
 	def guest_pause(arg):
-		pass
+		logit.debug(PRGNAME,"Pausing")
+		if vbclt.exist(arg) == 0 :
+			logit.info(PRGNAME,"Machine "+arg+" do not exist")
+			sys.exit(0)
+		cmd="VBoxManage controlvm "+arg+" pause"
+		output=execute(cmd)
+		print(output)
+		sys.exit(0)
 	def guest_resume(arg):
 		pass
 	def guest_reset(arg):
 		pass
 	def guest_start(arg):
-		pass
+		if vbclt.exist(arg) == 0 :
+			logit.info(PRGNAME,"Machine "+arg+" do not exist")
+			sys.exit(0)
+		cmd=("VBoxHeadless --startvm "+arg+" -vrde on &")
+		output=execute(cmd).decode("utf-8")
+		print("debug : "+output)
+		sys.exit(0)
+	def guest_op(arg)
 	def guest_status(arg):
 		pass
 	def guest_poweroff(arg):
 		pass
 
-if (len(sys.argv) == 1) :
-	__print.debug(PRGNAME,"argument parsing, only 1 arg")
-	_vb.list()
-else:
-        parseargs(sys.argv[1:])
+parseargs(sys.argv[1:])
 
+message="Starting "+PRGNAME
+logit.debug(PRGNAME,message)
+vmlist=vbclt.list()
+logit.info(PRGNAME,vmlist)
 
-
-if __name__ == '__main__':
-	message="Starting "+PRGNAME
-	__print.debug(PRGNAME,message)
-
-#usage()
-
+end()
