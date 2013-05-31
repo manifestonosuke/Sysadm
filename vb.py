@@ -154,8 +154,9 @@ def execute(command, option=False):
 
 class vbctl():
 	global PRGNAME
-	def __init__(self,a):
+	def __init__(self,a,b="none"):
 		arg=a
+		value=b
 	def setvrde():
 		passa
 	def exist(argi,out=0):
@@ -213,8 +214,26 @@ class vbctl():
 		output=execute(cmd).decode("utf-8")
 		logit.debug(PRGNAME,"Pausing proc exit")
 		end(0)
-	def guest_status(arg):
-		end(0)
+	def guest_status(arg,ask=value):
+		#logit.debug(PRGNAME,"args => "+arg+" "+ask)	
+		showvminfo={}
+		v="/usr/bin/VBoxManage showvminfo --machinereadable openstack1"
+		popen = subprocess.Popen(v,shell="True",stdout=subprocess.PIPE)
+		out,err=popen.communicate()
+		A=out.decode("utf-8") 
+		for el in A.split("\n"):
+			el2=el.split('=')
+			key,value=el2[0],el2[1:]
+			showvminfo[key]=value
+		if value=="display":
+			print(showvminfo)
+			return(0)
+		elif value=="none":
+			return(showvminfo)
+		else:
+			#print(value)
+			print(showvminfo[ask])
+			return
 	def guest_poweroff(arg):
 		pass
 
