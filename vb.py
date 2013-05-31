@@ -85,7 +85,7 @@ def parseargs(argv):
 	logit.debug(PRGNAME+"...parseargs","Parsing args")
 	if len(sys.argv) == 1:
 		logit.debug(PRGNAME,"argument parsing, only 0 arg")
-		vmlist=vbclt.list()
+		vmlist=vbctl.list()
 		logit.info(PRGNAME,vmlist)
 		end()
 	try:
@@ -103,28 +103,28 @@ def parseargs(argv):
 			global DEBUG
 			DEBUG = 1
 		elif opt == '-G':
-			vbclt.setvrde()
+			vbctl.setvrde()
 		elif opt == '-O' :
-			vbclt.guest_acpidown(arg)
+			vbctl.guest_acpidown(arg)
 		elif opt == '-l' :
-			rez=vbclt.list()
+			rez=vbctl.list()
 			logit.info(PRGNAME,rez)
 			sys.exit(0)
 		elif opt == '-p' :
-			vbclt.guest_pause(arg)
+			vbctl.guest_pause(arg)
 		elif opt == '-r' :
-			vbclt.guest_resume(arg)
+			vbctl.guest_resume(arg)
 		elif opt == '-R' : 
-			vbclt.guest_reset(arg)
+			vbctl.guest_reset(arg)
 		elif opt == '-s' :
-			rez=vbclt.guest_start(arg)
+			rez=vbctl.guest_start(arg)
 		elif opt == '-S' :
-			vbclt.guest_status(arg)
+			vbctl.guest_status(arg)
 		elif opt == '-v' :
 			global VERBOSE
 			VERBOSE=1
 		elif opt == 0 :
-			vbclt.guest_poweroff(arg)
+			vbctl.guest_poweroff(arg)
 		else: 
 			message="Argument "+opt+" not valid"
 			logit.info(PRGNAME,message)
@@ -152,21 +152,24 @@ def execute(command, option=False):
 	else:
 		return stdout
 
-class vbclt():
+class vbctl():
 	global PRGNAME
 	def __init__(self,a):
 		arg=a
 	def setvrde():
 		passa
-	def exist(arg):
+	def exist(argi,out=0):
 		logit.debug(PRGNAME,"checking if "+arg+" exist")
-		list=vbclt.list()
+		list=vbctl.list()
 		logit.debug(PRGNAME,"vbox list "+list)
 		found=0
 		for i in list.split():
 			if i == arg :
 				found=1
 				break
+		if found == 0 and out == 1 :
+			logit.info(PRGNAME,"Machine "+arg+" do not exist")
+			end(0)
 		return found 
 	def guest_acpidown(arg):
 		pass
@@ -182,36 +185,48 @@ class vbclt():
 		return(message)
 	def guest_pause(arg):
 		logit.debug(PRGNAME,"Pausing")
-		if vbclt.exist(arg) == 0 :
+		if vbctl.exist(arg) == 0 :
 			logit.info(PRGNAME,"Machine "+arg+" do not exist")
 			sys.exit(0)
 		cmd="VBoxManage controlvm "+arg+" pause"
 		output=execute(cmd)
-		print(output)
+		logit.debug(PRGNAME,"Pausing proc exit")
 		sys.exit(0)
 	def guest_resume(arg):
+		logit.debug(PRGNAME,"Pausing")
+		if vbctl.exist(arg) == 0 :
+			logit.info(PRGNAME,"Machine "+arg+" do not exist")
+			sys.exit(0)
+		cmd="VBoxManage controlvm "+arg+" resume"
+		output=execute(cmd)
+		logit.debug(PRGNAME,"Pausing proc exit")
+		sys.exit(0)
 		pass
 	def guest_reset(arg):
 		pass
 	def guest_start(arg):
-		if vbclt.exist(arg) == 0 :
+		logit.debug(PRGNAME,"Starting "+arg)
+		if vbctl.exist(arg) == 0 :
 			logit.info(PRGNAME,"Machine "+arg+" do not exist")
 			sys.exit(0)
 		cmd=("VBoxHeadless --startvm "+arg+" -vrde on &")
 		output=execute(cmd).decode("utf-8")
-		print("debug : "+output)
-		sys.exit(0)
-	def guest_op(arg)
+		logit.debug(PRGNAME,"Pausing proc exit")
+		end(0)
 	def guest_status(arg):
-		pass
+		end(0)
 	def guest_poweroff(arg):
 		pass
 
-parseargs(sys.argv[1:])
+def main():
+	parseargs(sys.argv[1:])
+	message="Starting "+PRGNAME
+	logit.debug(PRGNAME,message)
+	vmlist=vbctl.list()
+	logit.info(PRGNAME,vmlist)
+	end()
 
-message="Starting "+PRGNAME
-logit.debug(PRGNAME,message)
-vmlist=vbclt.list()
-logit.info(PRGNAME,vmlist)
-
-end()
+if __name__ == '__main__': 
+	main()
+else: 
+	print("LOADED")
