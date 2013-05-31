@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf8 -*-
 
 """
@@ -159,7 +159,7 @@ class vbctl():
 		value=b
 	def setvrde():
 		passa
-	def exist(argi,out=0):
+	def exist(arg,out=0):
 		logit.debug(PRGNAME,"checking if "+arg+" exist")
 		list=vbctl.list()
 		logit.debug(PRGNAME,"vbox list "+list)
@@ -189,6 +189,9 @@ class vbctl():
 		if vbctl.exist(arg) == 0 :
 			logit.info(PRGNAME,"Machine "+arg+" do not exist")
 			sys.exit(0)
+		if vbctl.guest_status(arg,'VMState') !=  'Running':
+			logit.info(PRGNAME,"Machine "+arg+" is not running")
+			sys.exit(0)
 		cmd="VBoxManage controlvm "+arg+" pause"
 		output=execute(cmd)
 		logit.debug(PRGNAME,"Pausing proc exit")
@@ -214,26 +217,39 @@ class vbctl():
 		output=execute(cmd).decode("utf-8")
 		logit.debug(PRGNAME,"Pausing proc exit")
 		end(0)
-	def guest_status(arg,ask=value):
-		#logit.debug(PRGNAME,"args => "+arg+" "+ask)	
+	def guest_status(arg,ask="none"):
+	
+		#Give status of virtbox guest
+		#Param is optionnal default is to return a dict will all params 
+		#display : display params 
+		#other param will check for this value in the dict key of the showvminfo return info
+		#sample vbctl.guest_status('thisbox','VMState') => return running status of the VM
+	
+		logit.debug(PRGNAME,"args => "+arg+" "+ask)	
 		showvminfo={}
-		v="/usr/bin/VBoxManage showvminfo --machinereadable openstack1"
-		popen = subprocess.Popen(v,shell="True",stdout=subprocess.PIPE)
+		cmd="VBoxManage showvminfo --machinereadable "+arg
+		popen = subprocess.Popen(cmd,shell="True",stdout=subprocess.PIPE)
 		out,err=popen.communicate()
 		A=out.decode("utf-8") 
 		for el in A.split("\n"):
 			el2=el.split('=')
+			if len(el2) == 0:
+				continue
 			key,value=el2[0],el2[1:]
 			showvminfo[key]=value
-		if value=="display":
+		if ask=="display":
 			print(showvminfo)
 			return(0)
-		elif value=="none":
+		elif ask=="none":
 			return(showvminfo)
 		else:
-			#print(value)
-			print(showvminfo[ask])
-			return
+			if ask not in showvminfo.keys():
+				logit.info(PRGNAME,"key is not found : "+ask)
+				return
+			ask=showvminfo[ask]
+			#logit.debug(PRGNAME,"return value : "+ask)	
+			return(ask[0])
+
 	def guest_poweroff(arg):
 		pass
 
