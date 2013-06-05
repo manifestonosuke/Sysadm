@@ -13,14 +13,17 @@ import subprocess
 import re
 from time import sleep
 
+
+PORT="3389-3399"
 PRGNAME=os.path.basename(sys.argv[0])
 if "DEBUG" in os.environ:
 	DEBUG=os.environ["DEBUG"]
 	#logit.debug(PRGNAME,'DEBUG mode set from shell ')
-	print('osdebug '+DEBUG)
+	#print('osdebug '+DEBUG)
 else: 
 	DEBUG=0 
-#DEBUG=1
+VBLOG=0
+
 
 def sighandler(signum):
 	if signum in [1,2,3,15]:
@@ -57,6 +60,7 @@ Run without arg will list vbox on the machine
         -S : Give summary status of a named vm 
         -0 : Power OFF the vbox
         -v : full verbose mode (will list all vbox command runned)
+	-V : set vrde on on port range 3389-3399
 	"""
 	message=message+add
 	print(message)	
@@ -87,9 +91,13 @@ class logit():
 		end(9)
 
 	def debug(p,m):
-		print('debug.debug : ',DEBUG)
+		#print('debug.debug : ',DEBUG)
 		if DEBUG == 1:
+			#print('debug.debug : ',DEBUG)
 			print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
+	def exec(p,m):
+		if VBLOG == 1:
+			print("%-10s : %-10s : %-30s" % ("VBLOG",p,m))
 
 def parseargs(argv):
 	global DEBUG
@@ -101,7 +109,7 @@ def parseargs(argv):
 		logit.info(PRGNAME,vmlist)
 		end()
 	try:
-		opts, args = getopt.getopt(argv, "dG:hO:lp:r:R:s:S:v0:", ["help"])
+		opts, args = getopt.getopt(argv, "dG:hO:lp:r:R:s:S:vV:0:", ["help"])
 	except getopt.GetoptError:
 		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
@@ -162,6 +170,17 @@ def parseargs(argv):
 		elif opt == '-v' :
 			global VERBOSE
 			VERBOSE=1
+		elif opt == '-V' :
+			status=vbctl.guest_details(arg,param="vrde")
+			if status == "on":
+				logit.info(PRGNAME,"VRDE is already on")
+			else:
+				logit.info(PRGNAME,"Setting VRDE port range "+PORT)
+				cmd="VBoxManage modifyvm "+arg+" --vrde on"
+				output=execute(cmd).decode('utf-8')
+				cmd="VBoxManage modifyvm "+arg+" --vrdeport "+PORT
+				output=execute(cmd).decode('utf-8')
+			end(0)
 		elif opt == 0 :
 			vbctl.guest_poweroff(arg)
 			end(0)
@@ -181,6 +200,7 @@ def execute(command, **option):
 				timewait=option[i]
 		logit.debug(THISFUNC,"Subprocess with timer "+str(timewait))
 		command=command+" &"
+		logit.exec(PRGNAME,cmd)
 		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		sleep(timewait)
 		logit.debug(THISFUNC,"launched"+command)
@@ -188,6 +208,7 @@ def execute(command, **option):
 		print(output)	
 		end(0)
 	
+	logit.exec(PRGNAME,command)
 	ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	#retcode = ps.returncode
 	stdout,stderr=ps.communicate()
@@ -205,15 +226,15 @@ def execute(command, **option):
 
 class vbctl():
 	global PRGNAME
-	#global DEBUG
-	print('vbctl.debug : '+DEBUG)
+	global DEBUG
+	#print('vbctl.debug : '+DEBUG)
 	def __init__(self,a,b="none"):
 		arg=a
 		value=b
 	def setvrde():
 		pass
 	def exist(arg,out=0):
-		THISFUNC=PRGNAME+".guest_status"
+		THISFUNC=PRGNAME+".exist"
 		logit.debug(THISFUNC,"checking if "+arg+" exist")
 		list=vbctl.list()
 		logit.debug(THISFUNC,"vbox list "+list)
@@ -311,11 +332,9 @@ class vbctl():
 		THISFUNC=PRGNAME+".guest_status"
 		logit.debug(THISFUNC,"args => "+arg+" "+ask)	
 		showvminfo={}
-		cmd="/usr/bin/VBoxManage showvminfo --machinereadable "+arg
-		popen = subprocess.Popen(cmd,shell="True",stdout=subprocess.PIPE)
-		out,err=popen.communicate()
-		A=out.decode("utf-8") 
-		for el in A.split("\n"):
+		cmd="VBoxManage showvminfo --machinereadable "+arg
+		output=execute(cmd).decode("utf-8")
+		for el in output.split("\n"):
 			el2=el.split('=')
 			key,value=el2[0],el2[1:]
 			showvminfo[key]=value
