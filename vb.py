@@ -77,7 +77,7 @@ class logit():
 	like verbose debug ...
 	"""
 	#global DEBUG
-	print('logit debug '+str(DEBUG))
+	#print('logit debug '+str(DEBUG))
 	def __init__(self,prg,message,extra="standard"): 
 		self.p=prg
 		self.m=message
@@ -101,7 +101,7 @@ class logit():
 
 def parseargs(argv):
 	global DEBUG
-	print('debug '+str(DEBUG))
+	#print('debug '+str(DEBUG))
 	logit.debug(PRGNAME+"...parseargs","Parsing args")
 	if len(sys.argv) == 1:
 		logit.debug(PRGNAME,"argument parsing, only 0 arg")
@@ -114,7 +114,11 @@ def parseargs(argv):
 		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
 		sys.exit(2)
-	print(opts,args)	
+	# print(opts,args)
+	# Debug option need to be setup first
+	for i in opts:
+		if i[0] == '-d':
+			DEBUG=1
 	logit.debug(PRGNAME," PARSE : "+str(opts)+" : "+str(args))
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
@@ -275,7 +279,7 @@ class vbctl():
 		dict=vbctl.guest_status(arg)
 		if param != "default":
 			return(dict[param][0].strip('"'))
-		param=['ostype','VMState','memory','cpus']
+		param=['ostype','VMState','memory','cpus','Forwarding(0)']
 		print("Name\t: {} ".format(arg))
 		dict=vbctl.guest_status(arg)
 		if vbctl.guest_status(arg,'vrde') == "on":
@@ -284,7 +288,8 @@ class vbctl():
 			param.append('vrde')
 		for i in param:
 			print(i+"\t: {} ".format(dict[i][0].strip('"')))
-		end(0)
+		
+		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
 		logit.debug(THISFUNC,"Pausing")
