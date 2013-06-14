@@ -25,7 +25,7 @@ class Message:
 		otherwise it will be silent
 	"""
 	level=""
-	level_value=[ 'info','debug','verbose','run','error','fatal']		
+	level_value=[ 'info','debug','verbose','run','error','fatal','silent']		
 	def __init__(self):
 		Message.level=""
 	
@@ -74,9 +74,12 @@ class Message:
 		print("level",Message.level)
 		print("level_value",Message.level_value)
 	test=classmethod(test)
-	
+
+def usage():
+	print('PRGNAME')
 
 def parseargs(argv):
+	option={}
 	if len(argv)==0:
 		return
 	try:
@@ -91,6 +94,29 @@ def parseargs(argv):
 			opts.pop(i)
 			Message.setlevel('debug')
 			Message.debug(PRGNAME,"going debug, remaining args "+str(opts))
+	
+	for opt, arg in opts:
+		if opt in ("-h", "--help"):
+			usage()
+			end(0)
+		elif opt == '-A':
+			option['ALL']=1
+		elif opt == '-D':
+			option['DEST']=arg
+		elif opt == '-o':
+			option['OVERWRITE']=1
+		elif opt == 'q':
+			Message.setlevel='silent'
+		elif opt == '-P':
+			option['PART']=1
+		elif opt == '-t':
+			option['TARGET']=arg
+		elif opt == '-z':
+			option['ZIP']=arg
+		else:
+			Message.error(PRGNAME,"Option "+opt+" not valid")
+			usage()
+			end(1)
 
 def cmd_exists(cmd):
 	return subprocess.call("type " + cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
@@ -100,7 +126,10 @@ if __name__ != '__main__':
 else:
 	for i in NEEDED:
 		if cmd_exists(i) == False:
-			Message.fatal(PRGNAME,"Command "+i+" is not found")	
+			Message.fatal(PRGNAME,"Command "+i+" is not found")
+	if os.geteuid() != 0:
+		Message.error(PRGNAME,"You have no root perms")	
+	option={}
 	parseargs(sys.argv[1:])
 	if "DEBUG" in os.environ:
         	Message.setlevel('debug')
