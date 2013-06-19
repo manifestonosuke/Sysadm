@@ -8,11 +8,15 @@ import sys
 import os
 import getopt
 import subprocess
+from datetime import datetime 
+from stat import *
 
 #main
 
 PRGNAME=os.path.basename(sys.argv[0])
-NEEDED=['fsarchiver']
+NEEDED=['fsarchiver','blkid']
+
+
 
 def end(code=0):
 	sys.exit(code)
@@ -25,7 +29,7 @@ class Message:
 		otherwise it will be silent
 	"""
 	level=""
-	level_value=[ 'info','debug','verbose','run','error','fatal','silent']		
+	level_value=[ 'info','debug','verbose','run','error','fatal','silent','warning']
 	def __init__(self):
 		Message.level=""
 	
@@ -45,6 +49,10 @@ class Message:
 	def info(cls,p,m):
 		print("%-10s : %-10s : %-30s" % ("INFO",p,m))
 	info=classmethod(info)
+	
+	def warning(cls,p,m):
+		print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
+	info=classmethod(warning)
 	
 	def debug(cls,p,m):
 		if Message.level == 'debug':
@@ -76,14 +84,32 @@ class Message:
 	test=classmethod(test)
 
 def usage():
-	print('PRGNAME')
+	message="usage : "+PRGNAME
+	add="""
+	[-o] [-q] [ -F <FSTYPE> ] [ -t target dump dir ]  [ /dev/devicename OR LABEL ] || [-A] 
+	Backup file sytem using fsarchiver
+	default is to backup all partition of ext4 which are not mounted 
+	-A      Do all parition but mounted one backup
+	-d      debug mode
+	-D      Default target disk to backup 
+	-F      Filesytem type for the source device (by default just work for ext4)
+	-h      This page 
+	-o      Force overwrite when file exist
+	-P      Save the MBR and partition table
+	-q      Silent mode (to be done)
+	-t      Target dir to write output file (if not specified $(pwd))
+	-z      Compression level (as for fsarchiver)
+	"""
+	add+="\nDefault device to dump is "+option['DEVICE']
+	add+="\nDefault target directory to store archives is "+option['TARGET']
+		
+	print(message+add)
 
-def parseargs(argv):
-	option={}
+def parseargs(argv,option):
 	if len(argv)==0:
 		return
 	try:
-		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz:", ["help"])
+		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
 	if Message.getlevel()=='debug':
@@ -94,7 +120,6 @@ def parseargs(argv):
 			opts.pop(i)
 			Message.setlevel('debug')
 			Message.debug(PRGNAME,"going debug, remaining args "+str(opts))
-	
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
@@ -102,24 +127,107 @@ def parseargs(argv):
 		elif opt == '-A':
 			option['ALL']=1
 		elif opt == '-D':
-			option['DEST']=arg
+			option['DEVICE']=arg
 		elif opt == '-o':
 			option['OVERWRITE']=1
 		elif opt == 'q':
 			Message.setlevel='silent'
 		elif opt == '-P':
 			option['PART']=1
+		elif opt == '-s':
+			option['SOURCE']=arg
 		elif opt == '-t':
 			option['TARGET']=arg
+		elif opt == '-v':
+			Message.setlevel='verbose'
 		elif opt == '-z':
 			option['ZIP']=arg
 		else:
 			Message.error(PRGNAME,"Option "+opt+" not valid")
 			usage()
 			end(1)
+	return option
 
 def cmd_exists(cmd):
 	return subprocess.call("type " + cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+def execute(cmd,option={}):
+	if len(option) == 0:
+		pass	 		
+
+	 	
+
+def do_part_backup(option):
+	""" we got the needed params in the list
+	we build the dest file with device name and command name
+	"""
+	if not S_ISBLK(os.stat(option['DEVICE']).st_mode): 
+		Message.fatal(PRGNAME,"device "+option['DEVICE']+ "is not block device")
+	else:
+		for i in option['DEVICE']:
+			if len(i) > 0:
+				shortfile=i
+				
+	d=str(datetime.now().year)+"."+str(datetime.now().month)+"."+str(datetime.now().day)
+	if cmd_exists('dd') == False:
+		Message.warning(PRGNAME,"dd not found cant part backup")
+	else:
+		Message.info(PRGNAME,"Running dd backup")
+		output=option['TARGET']+"/part-dd."+d+".backup"
+		if os.path.exists(output):
+			if option['OVERWRITE'] == 1:
+				Message.info(PRGNAME,"Overwriting "+output)
+			else:
+				Message.fatal(PRGNAME,"Cant overwrite "+output)
+		command="dd if="+option['DEVICE']+" of="+output+" bs=512 count=1 2>&1"
+		Message.debug(PRGNAME,"Attempting to run"+command)
+		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout,stderr=ps.communicate()
+		if ps.returncode == 0:
+			print(stdout.decode("utf-8"))
+		else:
+			Message.error(PRGNAME,"dd return an error"+stdout)
+	
+	if cmd_exists('sfdisk') == False:
+		Message.warning(PRGNAME,"sfdisk not found cant part backup")
+	else:
+		Message.info(PRGNAME,"Running sfdisk backup")
+		output=option['TARGET']+"/sfdisk."+d+".backup"
+		if os.path.exists(output):
+			if option['OVERWRITE'] == 1:
+				Message.info(PRGNAME,"Overwriting "+output)
+			else:
+				Message.fatal(PRGNAME,"Cant overwrite "+output)
+		command="sfdisk -d "+option['DEVICE']+" > "+output
+		Message.debug(PRGNAME,"Attempting to run"+command)
+		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout,stderr=ps.communicate()
+		if ps.returncode == 0:
+			print(stderr.decode("utf-8"))
+		else:
+			Message.error(PRGNAME,"dd return an error"+stderr)
+	
+	if cmd_exists('blkid') == False:
+		Message.warning(PRGNAME,"blkid not found cant part backup")
+	else:
+		Message.info(PRGNAME,"Running blkid backup")
+		output=option['TARGET']+"/blkid."+d+".backup"
+		if os.path.exists(output):
+			if option['OVERWRITE'] == 1:
+				Message.info(PRGNAME,"Overwriting "+output)
+			else:
+				Message.fatal(PRGNAME,"Cant overwrite "+output)
+		command="blkid > "+output
+		Message.debug(PRGNAME,"Attempting to run"+command)
+		ps=subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout,stderr=ps.communicate()
+		if ps.returncode == 0:
+			print(stderr.decode("utf-8"))
+		else:
+			Message.error(PRGNAME,"dd return an error"+stderr)
+		
+	end(0)
+
 
 if __name__ != '__main__':
 	print('loaded')
@@ -127,10 +235,27 @@ else:
 	for i in NEEDED:
 		if cmd_exists(i) == False:
 			Message.fatal(PRGNAME,"Command "+i+" is not found")
+	option={
+		'DEVICE' : '/dev/sda',	
+		'SOURCE' : '',
+		'TARGET' : '/data/tmp',
+		'OVERWRITE' : 0,
+		'ALL' : 0,
+		'PART' : 0,
+		'ZIP' : 0,
+	}
+
+
+	option=parseargs(sys.argv[1:],option)
 	if os.geteuid() != 0:
 		Message.error(PRGNAME,"You have no root perms")	
-	option={}
-	parseargs(sys.argv[1:])
 	if "DEBUG" in os.environ:
         	Message.setlevel('debug')
-	Message.debug(PRGNAME,'main')
+	Message.debug(PRGNAME,"Main - running options are : \n"+str(option))
+	try:
+		if not S_ISDIR(os.stat(option['TARGET']).st_mode):
+			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not a directory")
+	except OSError:
+			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not accessible")
+	if option['PART'] == 1:
+		do_part_backup(option)
