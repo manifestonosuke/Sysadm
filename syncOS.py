@@ -227,6 +227,11 @@ def do_part_backup(option):
 			Message.error(PRGNAME,"dd return an error"+stderr)
 		
 	end(0)
+i
+def build_device_label_dict():
+	cmd="/sbin/blkid -o device"
+	ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		
 
 
 if __name__ != '__main__':
@@ -259,3 +264,19 @@ else:
 			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not accessible")
 	if option['PART'] == 1:
 		do_part_backup(option)
+
+
+
+end(0)
+cmd="blkid -o export" 
+ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
+stdout,stderr=ps.communicate()
+a=stdout.decode("utf-8")
+b=a.split('\n')
+dic={}
+for i in b:
+	if len(i) > 0:
+		j,k=i.split('=')
+		if j == 'DEVNAME':
+			dic{j:k}			
+
