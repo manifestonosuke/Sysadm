@@ -107,7 +107,7 @@ def usage():
 
 def parseargs(argv,option):
 	if len(argv)==0:
-		return
+		return option
 	try:
 		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz", ["help"])
 	except getopt.GetoptError:
@@ -227,12 +227,38 @@ def do_part_backup(option):
 			Message.error(PRGNAME,"dd return an error"+stderr)
 		
 	end(0)
-i
+
 def build_device_label_dict():
 	cmd="/sbin/blkid -o device"
 	ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		
-
+class blkid():
+	def __init__(self):
+		cmd="blkid -o export"
+		ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout,stderr=ps.communicate()
+		blk=stdout.decode("utf-8")
+		blk=blk.split('\n')
+		dic={}
+		for i in blk:
+			#print("begin "+i)
+			if len(i) == 0:
+				continue
+			k,v=i.split("=")
+			Message.debug(PRGNAME,"k v : "+k+" "+v)
+			if k == "DEVNAME":
+				this=str(os.path.split(v)[1])
+				Message.debug(PRGNAME,"This is new dev "+v)
+				dic[this]={}
+			else:
+				Message.debug(PRGNAME,"This is new value "+k+" "+v)
+				#print("this='{}'".format(this))
+				dic[this].update({str(k):str(v)})
+		
+	def get_blk(self,blk):
+		return(dic)
+		
+			
 
 if __name__ != '__main__':
 	print('loaded')
@@ -266,17 +292,6 @@ else:
 		do_part_backup(option)
 
 
-
+this_host=blkid()
+print(this_host)
 end(0)
-cmd="blkid -o export" 
-ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) 
-stdout,stderr=ps.communicate()
-a=stdout.decode("utf-8")
-b=a.split('\n')
-dic={}
-for i in b:
-	if len(i) > 0:
-		j,k=i.split('=')
-		if j == 'DEVNAME':
-			dic{j:k}			
-
