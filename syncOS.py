@@ -8,6 +8,7 @@ import sys
 import os
 import getopt
 import subprocess
+import re
 from datetime import datetime 
 from stat import *
 
@@ -110,7 +111,7 @@ def parseargs(argv,option):
 	if len(argv)==0:
 		return option
 	try:
-		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz", ["help"])
+		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz:", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
 	#if Message.getlevel()=='debug':
@@ -266,12 +267,9 @@ class Blkid():
 				self.blkstruct[this].update({str(k):str(v)})
 				Message.debug(PRGNAME,self.blkstruct)
 
-	def get_blk(self):
+	def get(self):
 		return self.blkstruct
 
-	def get_label_device(self):
-		pass
-	
 	def get_valid_device(self,option):
 		list=[]
 		for i in self.blkstruct:
@@ -295,7 +293,64 @@ class Blkid():
 			if type in self.blkstruct[i]:
 				Message.debug(PRGNAME,"Label found "+self.blkstruct[i][type])
 				ret.append(self.blkstruct[i][type])
-		return ret		
+		return ret
+	
+	def x_to_dev(self,value,x='LABEL'):
+		"""return the device of the blkid flag x (default is LABEL)"""
+		ret=[]
+		for dev in self.blkstruct:
+			if x in self.blkstruct[dev]:
+				#print(self.blkstruct[dev][x],value)
+				if self.blkstruct[dev][x] == value:
+					#print(self.blkstruct[dev][x])
+					ret.append(dev)
+		return ret  
+
+def is_dev(dev):
+	if re.match('/dev/',dev):
+		return True
+	else:
+		return False
+
+
+def dump_fs(option,blk):
+	""" dump the fs option is the struct with all params blk the blkid struct"""
+	output=""
+	cmd="fsarchiver savefs -v -j2"
+	if not option['ZIP'] ==  0:
+		cmd+="-z option['ZIP']"
+	if not option['OVERWRITE'] ==  1:
+		cmd+="-o "
+	for i in option['SOURCE']:
+		# get the sdxxxx part from /dev/...
+		output=""
+		run=""
+		if is_dev(i):
+			part=i.split('/')[-1]	
+			output=os.uname()[1]+"."+part	
+		else:
+			label=i
+			part=blk.x_to_dev(i)[0]
+			shortpart=part.split('/')[-1]
+			if len(part) == 0:
+				Message.warning(PRGNAME,"Cant find label "+i+" skipping")
+				continue
+			output=label+"."+shortpart
+		output=option['TARGET']+'/'+output+".fsa"
+		run=cmd+" "+output+" "+part
+		print(run)
+		ps=subprocess.Popen(run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+		stdout,stderr=ps.communicate()
+		if ps.returncode == 0:
+			print(stdout.decode("utf-8"))
+		else:
+			Message.error(PRGNAME,"fsarchiver return an error")
+			print(stderr)
+			ps.returncode
+		print(stdout)	
+			
+	
+
 
 if __name__ != '__main__':
 	print('loaded')
@@ -338,11 +393,12 @@ else:
 	devices=Blkid()
 	if option['ALL'] == 1:
 		valid_devices=devices.get_valid_device(option)
-		#for i in valid_devices:
-		#	text+=i+" "
+		for i in valid_devices:
+			option['SOURCE'].append(i)
 		Message.info(PRGNAME,"Attempting to dump : "+" ".join(valid_devices)) 
 	else:
 		Message.info(PRGNAME,"Attempting to dump : "+" ".join(option['SOURCE']))
-	
-	#disk.get_blk()
+			
+	dump_fs(option,devices)
+	#disk.get()
 	end(0)
