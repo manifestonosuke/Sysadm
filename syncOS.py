@@ -106,20 +106,21 @@ def usage():
 	print(message+add)
 
 def parseargs(argv,option):
+	Message.debug(PRGNAME,"going debug, remaining args "+str(argv))
 	if len(argv)==0:
 		return option
 	try:
 		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
-	if Message.getlevel()=='debug':
-		Message.debug(PRGNAME,"Params "+str(opts)+" "+str(args))
+	#if Message.getlevel()=='debug':
+	Message.debug(PRGNAME,"Params "+str(opts)+" "+str(args))
 	for i,el in enumerate(opts):
 		if '-d' in el:
 			"remove -d arg from opts string and go debug"
 			opts.pop(i)
 			Message.setlevel('debug')
-			Message.debug(PRGNAME,"going debug, remaining args "+str(opts))
+			Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
@@ -135,7 +136,7 @@ def parseargs(argv,option):
 		elif opt == '-P':
 			option['PART']=1
 		elif opt == '-s':
-			option['SOURCE']=arg
+			option['SOURCE'].append(arg)
 		elif opt == '-t':
 			option['TARGET']=arg
 		elif opt == '-v':
@@ -146,6 +147,10 @@ def parseargs(argv,option):
 			Message.error(PRGNAME,"Option "+opt+" not valid")
 			usage()
 			end(1)
+	""" Remaining args are devices to dump"""
+	if len(args) > 0: 
+		for i in args:
+			option['SOURCE'].append(i)
 	return option
 
 def cmd_exists(cmd):
@@ -251,7 +256,8 @@ class Blkid():
 			k,v=i.split("=")
 			Message.debug(PRGNAME,"k v : "+k+" "+v)
 			if k == "DEVNAME":
-				this=str(os.path.split(v)[1])
+				#this=str(os.path.split(v)[1])
+				this=v
 				Message.debug(PRGNAME,"This is new dev "+v)
 				self.blkstruct[this]={}
 			else:
@@ -265,10 +271,31 @@ class Blkid():
 
 	def get_label_device(self):
 		pass
+	
+	def get_valid_device(self,option):
+		list=[]
+		for i in self.blkstruct:
+			if self.blkstruct[i]['TYPE'] in option['TYPE']:
+				list.append(i)
+		list.sort()
+		return list
 			
-def dump_device():
-	pass
-
+	def dev_to_x(self,dev='ALL',type='LABEL'):
+		list=[]
+		ret=[]
+		if dev == 'ALL':
+			for i in self.blkstruct:
+				list.append(i)
+		else:
+			list=[dev]
+		for i in list:
+			if i not in self.blkstruct.keys():
+				Message.error(PRGNAME,"Value not in blk struct "+i)
+				continue
+			if type in self.blkstruct[i]:
+				Message.debug(PRGNAME,"Label found "+self.blkstruct[i][type])
+				ret.append(self.blkstruct[i][type])
+		return ret		
 
 if __name__ != '__main__':
 	print('loaded')
@@ -278,14 +305,14 @@ else:
 			Message.fatal(PRGNAME,"Command "+i+" is not found")
 	option={
 		'DEVICE' : '/dev/sda',	
-		'SOURCE' : '',
+		'SOURCE' : [],
 		'TARGET' : '/data/tmp',
 		'OVERWRITE' : 0,
 		'ALL' : 0,
 		'PART' : 0,
 		'ZIP' : 0,
+		'TYPE' : ['ext2','ext3','ext4']
 	}
-
 
 	option=parseargs(sys.argv[1:],option)
 	if os.geteuid() != 0:
@@ -302,12 +329,20 @@ else:
 		ret=do_part_backup(option)
 		end(ret)
 
-	if option['ALL'] == 0 and option['SOURCE'] == '':
+	if option['ALL'] == 0 and option['SOURCE'] == []:
 		Message.error(PRGNAME,"no device to dump specified")
 		usage()
 		end(0)		
 
 
-	disk=Blkid()
+	devices=Blkid()
+	if option['ALL'] == 1:
+		valid_devices=devices.get_valid_device(option)
+		#for i in valid_devices:
+		#	text+=i+" "
+		Message.info(PRGNAME,"Attempting to dump : "+" ".join(valid_devices)) 
+	else:
+		Message.info(PRGNAME,"Attempting to dump : "+" ".join(option['SOURCE']))
+	
 	#disk.get_blk()
 	end(0)
