@@ -52,7 +52,7 @@ class Message:
 	
 	def warning(cls,p,m):
 		print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
-	info=classmethod(warning)
+	warning=classmethod(warning)
 	
 	def debug(cls,p,m):
 		if Message.level == 'debug':
@@ -161,6 +161,7 @@ def do_part_backup(option):
 	""" we got the needed params in the list
 	we build the dest file with device name and command name
 	"""
+	ret=0
 	if not S_ISBLK(os.stat(option['DEVICE']).st_mode): 
 		Message.fatal(PRGNAME,"device "+option['DEVICE']+ "is not block device")
 	else:
@@ -187,6 +188,7 @@ def do_part_backup(option):
 			print(stdout.decode("utf-8"))
 		else:
 			Message.error(PRGNAME,"dd return an error"+stdout)
+			ret+=ps.returncode
 	
 	if cmd_exists('sfdisk') == False:
 		Message.warning(PRGNAME,"sfdisk not found cant part backup")
@@ -206,6 +208,7 @@ def do_part_backup(option):
 			print(stderr.decode("utf-8"))
 		else:
 			Message.error(PRGNAME,"dd return an error"+stderr)
+			ret+=ps.returncode
 	
 	if cmd_exists('blkid') == False:
 		Message.warning(PRGNAME,"blkid not found cant part backup")
@@ -225,21 +228,22 @@ def do_part_backup(option):
 			print(stderr.decode("utf-8"))
 		else:
 			Message.error(PRGNAME,"dd return an error"+stderr)
+			ret+=ps.returncode
 		
-	end(0)
+	return(ret)
 
 def build_device_label_dict():
 	cmd="/sbin/blkid -o device"
 	ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		
-class blkid():
+class Blkid():
 	def __init__(self):
+		self.blkstruct={}
 		cmd="blkid -o export"
 		ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdout,stderr=ps.communicate()
 		blk=stdout.decode("utf-8")
 		blk=blk.split('\n')
-		dic={}
 		for i in blk:
 			#print("begin "+i)
 			if len(i) == 0:
@@ -249,16 +253,22 @@ class blkid():
 			if k == "DEVNAME":
 				this=str(os.path.split(v)[1])
 				Message.debug(PRGNAME,"This is new dev "+v)
-				dic[this]={}
+				self.blkstruct[this]={}
 			else:
 				Message.debug(PRGNAME,"This is new value "+k+" "+v)
 				#print("this='{}'".format(this))
-				dic[this].update({str(k):str(v)})
-		
-	def get_blk(self,blk):
-		return(dic)
-		
+				self.blkstruct[this].update({str(k):str(v)})
+				Message.debug(PRGNAME,self.blkstruct)
+
+	def get_blk(self):
+		return self.blkstruct
+
+	def get_label_device(self):
+		pass
 			
+def dump_device():
+	pass
+
 
 if __name__ != '__main__':
 	print('loaded')
@@ -289,9 +299,15 @@ else:
 	except OSError:
 			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not accessible")
 	if option['PART'] == 1:
-		do_part_backup(option)
+		ret=do_part_backup(option)
+		end(ret)
+
+	if option['ALL'] == 0 and option['SOURCE'] == '':
+		Message.error(PRGNAME,"no device to dump specified")
+		usage()
+		end(0)		
 
 
-this_host=blkid()
-print(this_host)
-end(0)
+	disk=Blkid()
+	#disk.get_blk()
+	end(0)
