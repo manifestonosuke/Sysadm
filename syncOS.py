@@ -337,7 +337,7 @@ def dump_fs(option,blk):
 				continue
 			output=label+"."+shortpart
 		output=option['TARGET']+'/'+output+".fsa"
-		run=cmd+" "+output+" "+part
+		run=cmd+" "+output+" "+i
 		print(run)
 		ps=subprocess.Popen(run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdout,stderr=ps.communicate()
