@@ -130,6 +130,8 @@ def parseargs(argv,option):
 			option['ALL']=1
 		elif opt == '-D':
 			option['DEVICE']=arg
+		elif opt == '-F':
+			option['TYPE']=arg
 		elif opt == '-o':
 			option['OVERWRITE']=1
 		elif opt == 'q':
@@ -426,6 +428,9 @@ else:
 		valid_devices=devices.get_valid_device(option)
 		for i in valid_devices:
 			option['SOURCE'].append(i)
+		if len(valid_devices) == 0:
+			Message.warning(PRGNAME,"no devices selected with this arguments")
+			end(0)
 		Message.info(PRGNAME,"Starting to dump : "+" ".join(valid_devices)) 
 	else:
 		Message.info(PRGNAME,"starting to dump : "+" ".join(option['SOURCE']))
