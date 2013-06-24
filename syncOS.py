@@ -368,6 +368,7 @@ def dump_fs(option,blk):
 		output=option['TARGET']+'/'+output+".fsa"
 		run=cmd+" "+output+" "+part
 		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
+		Message.debug(PRGNAME,"run command : "+run)
 		ps=subprocess.Popen(run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdout,stderr=ps.communicate()
 		if ps.returncode == 0:
