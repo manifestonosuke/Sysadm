@@ -269,6 +269,9 @@ class Blkid():
 
 	def get(self):
 		return self.blkstruct
+	
+	def __getitem__(self):
+		return self.blkstruct
 
 	def get_valid_device(self,option):
 		list=[]
@@ -277,8 +280,13 @@ class Blkid():
 				list.append(i)
 		list.sort()
 		return list
-			
+
 	def dev_to_x(self,dev='ALL',type='LABEL'):
+		""" blkstruct is a Blkid object 
+		match device name with blkid type with type var 
+		return the list of type object mathing the device
+		if dev arg is ALL return a list for all devices 
+		"""
 		list=[]
 		ret=[]
 		if dev == 'ALL':
@@ -286,13 +294,15 @@ class Blkid():
 				list.append(i)
 		else:
 			list=[dev]
-		for i in list:
-			if i not in self.blkstruct.keys():
-				Message.error(PRGNAME,"Value not in blk struct "+i)
+		for device in list:
+			Message.debug(PRGNAME,"device : "+device+" struct keys"+str(self.blkstruct.keys()))
+			if device not in self.blkstruct:
+				Message.error(PRGNAME,"Device "+device+" not in blk sutruct")
 				continue
-			if type in self.blkstruct[i]:
-				Message.debug(PRGNAME,"Label found "+self.blkstruct[i][type])
-				ret.append(self.blkstruct[i][type])
+			print('type',device,self.blkstruct[device])
+			if type in self.blkstruct[device]:
+				Message.debug(PRGNAME,"Label found "+self.blkstruct[device][type])
+				ret.append(self.blkstruct[device][type])
 		return ret
 	
 	def x_to_dev(self,value,x='LABEL'):
@@ -321,15 +331,34 @@ def dump_fs(option,blk):
 		cmd+="-z option['ZIP']"
 	if not option['OVERWRITE'] ==  1:
 		cmd+="-o "
+	# i is the device to dump it can be dev like /dev/sdX or Label
+	# blk.get() to retrieve blk data
 	for i in option['SOURCE']:
 		# get the sdxxxx part from /dev/...
 		output=""
 		run=""
+		# We are on a device name using name has hostname + part number as filename
 		if is_dev(i):
-			part=i.split('/')[-1]	
-			output=os.uname()[1]+"."+part	
+			part=i.split('/')[-1]
+			this=blk.get()[i]
+			if 'LABEL' in this:
+				label=this['LABEL']
+				Message.debug(PRGNAME,"found label "+label+"for device "+i)
+				output=label+"."+part	
+			else:
+				output=os.uname()[1]+"."+part
+		# We have a label and thus extract device 
+		# Use label + partition (stripped from /dev.../) for filename	
 		else:
 			label=i
+			Message.debug(PRGNAME,"Trying blk.x_to_dev for "+i)
+			if blk.x_to_dev(i) == []:
+				Message.warning(PRGNAME,"No dump for not found label "+i)
+				continue
+			#this=blk.get()[i]
+			#if not 'LABEL' in this:
+			#	Message.error(PRGNAME,"label "+label+"not found for device "+i)
+			#	continue
 			part=blk.x_to_dev(i)[0]
 			shortpart=part.split('/')[-1]
 			if len(part) == 0:
@@ -338,7 +367,7 @@ def dump_fs(option,blk):
 			output=label+"."+shortpart
 		output=option['TARGET']+'/'+output+".fsa"
 		run=cmd+" "+output+" "+part
-		print(run)
+		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
 		ps=subprocess.Popen(run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		stdout,stderr=ps.communicate()
 		if ps.returncode == 0:
@@ -361,7 +390,7 @@ else:
 	option={
 		'DEVICE' : '/dev/sda',	
 		'SOURCE' : [],
-		'TARGET' : '/data/tmp',
+		'TARGET' : './',
 		'OVERWRITE' : 0,
 		'ALL' : 0,
 		'PART' : 0,
@@ -392,12 +421,13 @@ else:
 
 	devices=Blkid()
 	if option['ALL'] == 1:
+		# get_valid_device return list of device matching option['TYPE']
 		valid_devices=devices.get_valid_device(option)
 		for i in valid_devices:
 			option['SOURCE'].append(i)
-		Message.info(PRGNAME,"Attempting to dump : "+" ".join(valid_devices)) 
+		Message.info(PRGNAME,"Starting to dump : "+" ".join(valid_devices)) 
 	else:
-		Message.info(PRGNAME,"Attempting to dump : "+" ".join(option['SOURCE']))
+		Message.info(PRGNAME,"starting to dump : "+" ".join(option['SOURCE']))
 			
 	dump_fs(option,devices)
 	#disk.get()
