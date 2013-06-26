@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf8 -*-
 """
 	fsarchiver based FS backup
@@ -93,8 +93,9 @@ def usage():
 	-A      Do all parition but mounted one backup
 	-d      debug mode
 	-D      Default target disk to backup 
-	-F      Filesytem type for the source device (by default just work for ext4)
+	-F      Filesytem type for the source device (by default just work for ext2/3/4)
 	-h      This page 
+	-L	List device/label for select fstype (default ext2/3/4)
 	-o      Force overwrite when file exist
 	-P      Save the MBR and partition table
 	-q      Silent mode (to be done)
@@ -111,7 +112,7 @@ def parseargs(argv,option):
 	if len(argv)==0:
 		return option
 	try:
-		opts, args = getopt.getopt(argv, "AdF:hoPs:t:qvz:", ["help"])
+		opts, args = getopt.getopt(argv, "AdF:hLoPs:t:qvz:", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
 	#if Message.getlevel()=='debug':
@@ -132,12 +133,14 @@ def parseargs(argv,option):
 			option['DEVICE']=arg
 		elif opt == '-F':
 			option['TYPE']=arg
+		elif opt == '-L':
+			option['ACTION']='list'
 		elif opt == '-o':
 			option['OVERWRITE']=1
 		elif opt == 'q':
 			Message.setlevel='silent'
 		elif opt == '-P':
-			option['PART']=1
+			option['ACTION']='part'
 		elif opt == '-s':
 			option['SOURCE'].append(arg)
 		elif opt == '-t':
@@ -245,7 +248,7 @@ def build_device_label_dict():
 	ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 		
 class Blkid():
-	def __init__(self):
+	def __init__2(self):
 		self.blkstruct={}
 		cmd="blkid -o export"
 		ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -259,18 +262,53 @@ class Blkid():
 			k,v=i.split("=")
 			Message.debug(PRGNAME,"k v : "+k+" "+v)
 			if k == "DEVNAME":
-				#this=str(os.path.split(v)[1])
-				this=v
+				device=v
+				#device=str(os.path.split(v)[1])
 				Message.debug(PRGNAME,"This is new dev "+v)
-				self.blkstruct[this]={}
+				self.blkstruct[device]={}
 			else:
 				Message.debug(PRGNAME,"This is new value "+k+" "+v)
-				#print("this='{}'".format(this))
-				self.blkstruct[this].update({str(k):str(v)})
+				#print("device='{}'".format(device))
+				self.blkstruct[device].update({str(k):str(v)})
 				Message.debug(PRGNAME,self.blkstruct)
+
+	def __init__(self):
+		self.blkstruct={}
+		cmd="blkid"
+		ps=subprocess.Popen(cmd,shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)	
+		stdout,stderr=ps.communicate()
+		blk=stdout.decode("utf-8")
+		blk=blk.split('\n')
+		blk.remove('')
+		for line in blk:
+			device=line.split(':')[0]
+			args=line.split(':')[1]
+			#print(device,args)
+			self.blkstruct[device]={}
+			args=args.split(' ')
+			for tuple in args:
+				if len(tuple) == 0:
+					continue
+				k,v=tuple.split("=")
+				v=v.replace('"','')
+				#print(tuple.split("=")[0],tuple.split("=")[1])
+				#self.blkstruct[device].update({tuple.split("=")[0]:tuple.split("=")[1]})
+				self.blkstruct[device].update({k:v})
+		#print(self.blkstruct)
+			
+			
 
 	def get(self):
 		return self.blkstruct
+
+	def get_device_label(self,option):
+		for device in self.blkstruct:
+			if self.blkstruct[device]['TYPE'] not in option['TYPE']:
+				continue
+			if 'LABEL' in self.blkstruct[device]:
+				print(device+" : "+self.blkstruct[device]['LABEL'])
+			else:
+				print(device)
 	
 	def __getitem__(self):
 		return self.blkstruct
@@ -369,18 +407,62 @@ def dump_fs(option,blk):
 			output=label+"."+shortpart
 		output=option['TARGET']+'/'+output+".fsa"
 		run=cmd+" "+output+" "+part
-		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
 		Message.debug(PRGNAME,"run command : "+run)
-		ps=subprocess.Popen(run, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-		stdout,stderr=ps.communicate()
-		if ps.returncode == 0:
-			print(stdout.decode("utf-8"))
-		else:
-			Message.error(PRGNAME,"fsarchiver return an error")
-			print(stderr)
-			ps.returncode
-		print(stdout)	
-			
+		run=run.split()
+		ps=subprocess.Popen(run,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
+		
+		# Prepare terminal settings
+		term_size=int(os.popen('stty size', 'r').read().split()[1])
+		delete=""
+
+		
+		while True:
+			if ps.poll() != None:
+				break
+			try:
+				# fsarchiver do write on stderr
+				nextline = next(ps.stderr)
+			except StopIteration:
+				break
+			line=nextline.decode('utf-8').rstrip('\n')
+			# We will sort out lines starting with - for backup stream
+			if not line[0] == '-':
+				print(line)
+				break
+			# Match bracket with word inside starting by 0 or more blank
+			# and ending with 0 or more percenta
+			# arg is the path of files dumped (starting from /)
+			print(line)
+			fields=re.findall("(\[ *\w*%?\])",line)
+			percent=fields[1]
+			arg=line[line.index('/'):]
+			# Building output
+			string=percent+" "+arg
+			# limit output to term size
+			string=string[:term_size-1]
+			print("\r"+string,sep='',end='')
+			time.sleep(.1)
+			line_size=len(string)
+			sys.stdout.flush()
+			delete=' '*line_size
+			print("\r"+delete,end='')
+		
+		print()
+		output = ps.communicate()[0]
+		print(output)
+		ret = ps.returncode
+		Message.info(PRGNAME,'End Job')
+
+		#stdout,stderr=ps.communicate()
+		#if ps.returncode == 0:
+		#	print(stdout.decode("utf-8"))
+		#else:
+		#	Message.error(PRGNAME,"fsarchiver return an error")
+		#	print(stderr)
+		#	ps.returncode
+		#print(stdout)	
+		return ret	
 	
 
 
@@ -396,7 +478,7 @@ else:
 		'TARGET' : './',
 		'OVERWRITE' : 0,
 		'ALL' : 0,
-		'PART' : 0,
+		'ACTION' : 'dump',
 		'ZIP' : 0,
 		'TYPE' : ['ext2','ext3','ext4']
 	}
@@ -412,17 +494,20 @@ else:
 			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not a directory")
 	except OSError:
 			Message.fatal(PRGNAME,"Directory "+option['TARGET']+" is not accessible")
-	if option['PART'] == 1:
+	if option['ACTION'] == 'part':
 		ret=do_part_backup(option)
 		end(ret)
+	
+	devices=Blkid()
+	if option['ACTION'] == 'list':
+		ret=devices.get_device_label(option)
+		end(0)
 
 	if option['ALL'] == 0 and option['SOURCE'] == []:
 		Message.error(PRGNAME,"no device to dump specified")
 		usage()
 		end(0)		
-
-
-	devices=Blkid()
+	
 	if option['ALL'] == 1:
 		# get_valid_device return list of device matching option['TYPE']
 		valid_devices=devices.get_valid_device(option)
