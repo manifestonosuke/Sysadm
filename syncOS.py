@@ -11,6 +11,9 @@ import subprocess
 import re
 from datetime import datetime 
 from stat import *
+from time import sleep
+from datetime import datetime
+
 
 #main
 
@@ -411,6 +414,8 @@ def dump_fs(option,blk):
 		run=run.split()
 		ps=subprocess.Popen(run,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
+		timestart=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
+		Message.info(PRGNAME,"Starting at "+timestart)
 		
 		# Prepare terminal settings
 		term_size=int(os.popen('stty size', 'r').read().split()[1])
@@ -425,34 +430,36 @@ def dump_fs(option,blk):
 				nextline = next(ps.stderr)
 			except StopIteration:
 				break
+			
 			line=nextline.decode('utf-8').rstrip('\n')
 			# We will sort out lines starting with - for backup stream
 			if not line[0] == '-':
 				print(line)
-				break
+				sys.stdout.flush()
 			# Match bracket with word inside starting by 0 or more blank
 			# and ending with 0 or more percenta
 			# arg is the path of files dumped (starting from /)
-			print(line)
-			fields=re.findall("(\[ *\w*%?\])",line)
-			percent=fields[1]
-			arg=line[line.index('/'):]
-			# Building output
-			string=percent+" "+arg
-			# limit output to term size
-			string=string[:term_size-1]
-			print("\r"+string,sep='',end='')
-			time.sleep(.1)
-			line_size=len(string)
-			sys.stdout.flush()
-			delete=' '*line_size
-			print("\r"+delete,end='')
+			else:
+				fields=re.findall("(\[ *\w*%?\])",line)
+				percent=fields[1]
+				arg=line[line.index('/'):]
+				# Building output
+				string=percent+" "+arg
+				# limit output to term size
+				string=string[:term_size-1]
+				print("\r"+string,sep='',end='')
+				sleep(.01)
+				line_size=len(string)
+				sys.stdout.flush()
+				delete=' '*line_size
+				print("\r"+delete,end='')
 		
 		print()
 		output = ps.communicate()[0]
 		print(output)
 		ret = ps.returncode
-		Message.info(PRGNAME,'End Job')
+		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
+		Message.info(PRGNAME,'End Job at '+timeend)
 
 		#stdout,stderr=ps.communicate()
 		#if ps.returncode == 0:
