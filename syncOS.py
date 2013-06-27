@@ -460,7 +460,8 @@ def dump_fs(option,blk):
 				# 16 is aroung sum of time + percent display
 				string=curfile[:term_size-16]
 				# Remove non ascii chars 
-				string=re.sub("(\W)",'',string)
+				#string=re.sub("(![a-zA-Z0-9_/])",'',string)
+				string=re.sub("([^a-zA-Z0-9_/-])",'',string)
 				# Add time display 
 				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
 				print("\r"+timecur+percent+" "+string,sep='',end='')
