@@ -103,6 +103,7 @@ def usage():
 	-P      Save the MBR and partition table
 	-q      Silent mode (to be done)
 	-t      Target dir to write output file (if not specified $(pwd))
+	-T	add a TAG on the dest file name ( standard label-dev.fsa TAG-label-dev.fsa)
 	-z      Compression level (as for fsarchiver)
 	"""
 	add+="\nDefault device to dump is "+option['DEVICE']
@@ -115,7 +116,7 @@ def parseargs(argv,option):
 	if len(argv)==0:
 		return option
 	try:
-		opts, args = getopt.getopt(argv, "AdF:hLoPs:t:qvz:", ["help"])
+		opts, args = getopt.getopt(argv, "AdF:hLoPs:t:T:qvz:", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
 	#if Message.getlevel()=='debug':
@@ -148,6 +149,14 @@ def parseargs(argv,option):
 			option['SOURCE'].append(arg)
 		elif opt == '-t':
 			option['TARGET']=arg
+		elif opt == '-T':
+			badargs=re.findall("\W",arg)
+			if badargs != []:
+				bad2=""
+				for i in badargs:
+					bad2+=i
+				Message.fatal(PRGNAME,"TAG cannot include non letter/digit char : "+bad2)
+			option['EXT']=arg
 		elif opt == '-v':
 			Message.setlevel='verbose'
 		elif opt == '-z':
@@ -408,7 +417,10 @@ def dump_fs(option,blk):
 				Message.warning(PRGNAME,"Cant find label "+i+" skipping")
 				continue
 			output=label+"."+shortpart
-		output=option['TARGET']+'/'+output+".fsa"
+		if option['EXT'] != "":
+			output=option['TARGET']+'/'+option['EXT']+"."+output+".fsa"
+		else:
+			output=option['TARGET']+'/'+output+".fsa"
 		run=cmd+" "+output+" "+part
 		Message.debug(PRGNAME,"run command : "+run)
 		run=run.split()
@@ -498,7 +510,8 @@ else:
 		'ALL' : 0,
 		'ACTION' : 'dump',
 		'ZIP' : 0,
-		'TYPE' : ['ext2','ext3','ext4']
+		'TYPE' : ['ext2','ext3','ext4'],
+		'EXT' : ""
 	}
 
 	option=parseargs(sys.argv[1:],option)
