@@ -447,16 +447,20 @@ def dump_fs(option,blk):
 				string=percent+" "+arg
 				# limit output to term size
 				string=string[:term_size-1]
+				# Add time display 
+				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
+				string=timecur+string
 				print("\r"+string,sep='',end='')
-				sleep(.01)
+				sleep(.001)
 				line_size=len(string)
 				sys.stdout.flush()
 				delete=' '*line_size
 				print("\r"+delete,end='')
 		
 		print()
-		output = ps.communicate()[0]
-		print(output)
+		output = ps.communicate()[0].decode("utf-8")
+		if len(output) > 0:
+			print(output)
 		ret = ps.returncode
 		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
 		Message.info(PRGNAME,'End Job at '+timeend)
