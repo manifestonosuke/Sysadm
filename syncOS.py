@@ -372,8 +372,8 @@ def dump_fs(option,blk):
 	cmd="fsarchiver savefs -v -j2"
 	if not option['ZIP'] ==  0:
 		cmd+="-z option['ZIP']"
-	if not option['OVERWRITE'] ==  1:
-		cmd+="-o "
+	if not option['OVERWRITE'] ==  0:
+		cmd+=" -o "
 	# i is the device to dump it can be dev like /dev/sdX or Label
 	# blk.get() to retrieve blk data
 	for i in option['SOURCE']:
@@ -420,7 +420,8 @@ def dump_fs(option,blk):
 		# Prepare terminal settings
 		term_size=int(os.popen('stty size', 'r').read().split()[1])
 		delete=""
-
+		count=0
+		string=""
 		
 		while True:
 			if ps.poll() != None:
@@ -430,7 +431,7 @@ def dump_fs(option,blk):
 				nextline = next(ps.stderr)
 			except StopIteration:
 				break
-			
+			count+=1	
 			line=nextline.decode('utf-8').rstrip('\n')
 			# We will sort out lines starting with - for backup stream
 			if not line[0] == '-':
@@ -442,24 +443,30 @@ def dump_fs(option,blk):
 			else:
 				fields=re.findall("(\[ *\w*%?\])",line)
 				percent=fields[1]
-				arg=line[line.index('/'):]
-				# Building output
-				string=percent+" "+arg
+				curfile=line[line.index('/'):]
 				# limit output to term size
-				string=string[:term_size-1]
+				# 16 is aroung sum of time + percent display
+				string=curfile[:term_size-16]
 				# Add time display 
 				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
-				string=timecur+string
-				print("\r"+string,sep='',end='')
+				print("\r"+timecur+percent+" "+string,sep='',end='')
 				sleep(.001)
-				line_size=len(string)
+				line_size=term_size
 				sys.stdout.flush()
 				delete=' '*line_size
-				print("\r"+delete,end='')
-		
+				# Limit the line delete frequency to avoid flickering
+				if count % 100 == 0:
+					print("\r"+delete,end='')
+					#print("\r"+timecur+percent+delete,end='')
+					print("\r"+delete,end='')
+	
 		print()
-		output = ps.communicate()[0].decode("utf-8")
+		if count == 0:
+			output = ps.communicate()[1].decode("utf-8")
+		else:
+			output = ps.communicate()[0].decode("utf-8")
 		if len(output) > 0:
+			Message.info(PRGNAME,"Last messages from dump")
 			print(output)
 		ret = ps.returncode
 		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
