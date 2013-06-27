@@ -9,11 +9,12 @@ import os
 import getopt
 import subprocess
 import re
-from datetime import datetime 
 from stat import *
-from time import sleep
+import time
+#from time import *
+#from time import localtime,time,sleep
+import datetime
 from datetime import datetime
-
 
 #main
 
@@ -428,8 +429,8 @@ def dump_fs(option,blk):
 		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
 		timestart=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
 		Message.info(PRGNAME,"Starting at "+timestart)
-		
-		# Prepare terminal settings
+		timestart=time.localtime()	
+		# Prepare terminal settings and init variables
 		term_size=int(os.popen('stty size', 'r').read().split()[1])
 		delete=""
 		count=0
@@ -459,13 +460,12 @@ def dump_fs(option,blk):
 				# limit output to term size
 				# 16 is aroung sum of time + percent display
 				string=curfile[:term_size-16]
-				# Remove non ascii chars 
-				#string=re.sub("(![a-zA-Z0-9_/])",'',string)
+				# limit display chars to avoid crash on strange ones with print
 				string=re.sub("([^a-zA-Z0-9_/-])",'',string)
 				# Add time display 
 				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
 				print("\r"+timecur+percent+" "+string,sep='',end='')
-				sleep(.001)
+				time.sleep(.001)
 				line_size=term_size
 				sys.stdout.flush()
 				delete=' '*line_size
@@ -476,29 +476,22 @@ def dump_fs(option,blk):
 					print("\r"+delete,end='')
 	
 		print()
-		if count == 0:
-			output = ps.communicate()[1].decode("utf-8")
+		stdout,stderr=ps.communicate()
+		ret=ps.returncode
+		if ret == 0:
+			if len(stdout) > 0:
+				Message.info(PRGNAME,"Last messages from dump")
+				print(stdout.decode("utf-8"))
 		else:
-			output = ps.communicate()[0].decode("utf-8")
-		if len(output) > 0:
-			Message.info(PRGNAME,"Last messages from dump")
-			print(output)
-		ret = ps.returncode
+			Message.error(PRGNAME,"fsarchiver return an error")
+			print(stderr.decode("utf-8"))
+		
 		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
-		Message.info(PRGNAME,'End Job at '+timeend)
-
-		#stdout,stderr=ps.communicate()
-		#if ps.returncode == 0:
-		#	print(stdout.decode("utf-8"))
-		#else:
-		#	Message.error(PRGNAME,"fsarchiver return an error")
-		#	print(stderr)
-		#	ps.returncode
-		#print(stdout)	
+		timeend2=time.localtime()	
+		diff=time.mktime(timeend)-time.mktime(timestart)
+		Message.info(PRGNAME,'End Job at '+timeend+" ("+diff+" seconds) "+count+" files dumped")
 		return ret	
-	
-
-
+		
 if __name__ != '__main__':
 	print('loaded')
 else:
