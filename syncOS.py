@@ -12,7 +12,7 @@ import re
 from stat import *
 import time
 #from time import *
-#from time import localtime,time,sleep
+from time import localtime,time,sleep,mktime
 import datetime
 from datetime import datetime
 
@@ -428,8 +428,8 @@ def dump_fs(option,blk):
 		ps=subprocess.Popen(run,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
 		timestart=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
+		timestart2=localtime()
 		Message.info(PRGNAME,"Starting at "+timestart)
-		timestart=time.localtime()	
 		# Prepare terminal settings and init variables
 		term_size=int(os.popen('stty size', 'r').read().split()[1])
 		delete=""
@@ -465,7 +465,7 @@ def dump_fs(option,blk):
 				# Add time display 
 				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
 				print("\r"+timecur+percent+" "+string,sep='',end='')
-				time.sleep(.001)
+				sleep(.001)
 				line_size=term_size
 				sys.stdout.flush()
 				delete=' '*line_size
@@ -487,9 +487,9 @@ def dump_fs(option,blk):
 			print(stderr.decode("utf-8"))
 		
 		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
-		timeend2=time.localtime()	
-		diff=time.mktime(timeend)-time.mktime(timestart)
-		Message.info(PRGNAME,'End Job at '+timeend+" ("+diff+" seconds) "+count+" files dumped")
+		timeend2=localtime()	
+		diff=mktime(timeend2)-mktime(timestart2)
+		Message.info(PRGNAME,'End Job at '+timeend+" ("+str(diff)+" seconds) "+str(count)+" files dumped")
 		return ret	
 		
 if __name__ != '__main__':
