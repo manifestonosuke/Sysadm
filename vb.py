@@ -265,6 +265,10 @@ class vbctl():
 	def list():
 		cmd="VBoxManage list vms"
 		output=execute(cmd).decode("utf-8")
+		print(output)
+		if len(output)==0:
+			logit.info(PRGNAME,"No machine found")
+			return("")
 		list=output.split("\n")[::]
 		message=""
 		for el in list:
