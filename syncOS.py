@@ -66,7 +66,7 @@ class Message:
 	
 	def verbose(cls,p,m):
 		if Message.level == 'verbose':
-			print("%-10s : %-10s : %-30s" % ("INFO",p,m))
+			print("%-10s : %-10s : %-30s" % ("VERBOSE",p,m))
 	verbose=classmethod(verbose)
 	
 	def run(cls,p,m):
