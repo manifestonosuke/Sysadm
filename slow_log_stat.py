@@ -32,12 +32,31 @@ matchlimit=100000
 # Results dict for sorted output 
 rez={}
 
+def usage():
+	print """
+	slow_log_stat.py [ -s ] [file]
+	slow_log_stat.py read mysql slow query log and sort out results
+
+	There is a default file or pass a file name as argument.
+
+	Only queries more than logtime value are used 
+	It will then show all queries as :
+	query time: date: sql statement 
+	
+	if -s parameter is set result will sort out queries and display a summary for each query.
+	This summary show the number of time the query have been done, longest time, shortest and average query time.		
+
+
+	"""
 
 # Basic argv processing 
 # -s will go to sorted output based on the rez{} dictionnary
 # last arg will be treated as input file
 if len(sys.argv) > 1 :
 	for i in sys.argv[1:]:
+		if i == '-h' :
+			usage()
+			exit(0) 
 		if i == '-s' : 
 			sorted=1
 			sys.argv.remove(i)
