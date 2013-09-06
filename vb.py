@@ -259,7 +259,7 @@ class vbctl():
 			sys.exit(0)
 		cmd="VBoxManage controlvm "+arg+" poweroff"
 		output=execute(cmd)
-		print(output)
+		#print(output)
 		logit.debug(THISFUNC,"Pausing proc exit")
 		sys.exit(0)
 	def list():
@@ -295,7 +295,8 @@ class vbctl():
 				print(i+"\t: {} ".format(dict[i][0].strip('"')))
 			else:
 				print(i+"\t: not set")
-		
+		vbctl.guest_property(arg)
+	
 		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
@@ -362,6 +363,23 @@ class vbctl():
 			status=str(showvminfo[ask][0]).split('"')[1]
 			logit.debug(THISFUNC,"Status : "+status)
 			return(status)
+
+	# Now only returning IP (0)	
+	def guest_property(arg,ask="none"):
+		THISFUNC=PRGNAME+".guest_status"
+		logit.debug(THISFUNC,"args => "+arg+" "+ask)	
+		showvminfo={}
+		cmd="VBoxManage guestproperty enumerate "+arg
+		output=execute(cmd).decode("utf-8")
+		for el in output.split("\n"):
+			if "/VirtualBox/GuestInfo/Net/0/V4/IP" in el:
+				this=re.split(' ',el)
+				pos=this.index("value:")
+				#print(this,pos)
+				ip=this[pos+1]
+				if ip != ",":
+					print("ip : "+ip)
+	
 	def guest_poweroff(arg):
 		pass
 
