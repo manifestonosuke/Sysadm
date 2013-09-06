@@ -291,7 +291,10 @@ class vbctl():
 		else:
 			param.append('vrde')
 		for i in param:
-			print(i+"\t: {} ".format(dict[i][0].strip('"')))
+			if i in dict.keys():
+				print(i+"\t: {} ".format(dict[i][0].strip('"')))
+			else:
+				print(i+"\t: not set")
 		
 		#end(0)
 	def guest_pause(arg):
