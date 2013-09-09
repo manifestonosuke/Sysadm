@@ -5,6 +5,18 @@
 	Virtualbox command line utility
 """
 
+"""
+	TODO 
+	* Improve ssh connection to fork and exit instead of os.system
+	* Improve VRDE settings 
+	* Change option S that easy mistake with -s 
+	* Improve date display with -l option (...6T14:14:43.847000000)
+	* Add IP in -l (interesting ?)
+	* Improve extention pack (install and display info)
+	http://download.virtualbox.org/virtualbox/$VBOXVER/Oracle_VM_VirtualBox_Extension_Pack-$VBOXVER.vbox-extpack
+
+"""
+
 import sys
 import os
 import getopt
@@ -53,11 +65,12 @@ Run without arg will list vbox on the machine
 	add="""
 	-d : run in debug mode
         -l : List VM with power status (State) and general info about virtualbox configuration
+        -L : Give summary status of a named vm 
         -p : pause the vbox 
         -r : resume the vbox
         -R : Reset the vbox     
         -s : start the vbox
-        -S : Give summary status of a named vm 
+        -S : ssh to the boxes name 
         -0 : Power OFF the vbox
         -v : full verbose mode (will list all vbox command runned)
 	-V : set vrde on on port range 3389-3399
@@ -109,7 +122,7 @@ def parseargs(argv):
 		logit.info(PRGNAME,vmlist)
 		end()
 	try:
-		opts, args = getopt.getopt(argv, "dG:hO:lp:r:R:s:S:vV:0:", ["help"])
+		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:0:", ["help"])
 	except getopt.GetoptError:
 		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
@@ -155,6 +168,9 @@ def parseargs(argv):
 			if vrde != "":
 				print(vrde)
 			end(0)
+		elif opt == '-L' :
+			status=vbctl.guest_details(arg)
+			end(0)	
 		elif opt == '-p' :
 			vbctl.guest_pause(arg)
 			end(0)
@@ -169,7 +185,7 @@ def parseargs(argv):
 			rez=vbctl.guest_start(arg)
 			end(0)
 		elif opt == '-S' :
-			status=vbctl.guest_details(arg)
+			status=vbctl.guest_ssh(arg)
 			end(0)	
 		elif opt == '-v' :
 			global VERBOSE
@@ -378,10 +394,31 @@ class vbctl():
 				#print(this,pos)
 				ip=this[pos+1]
 				if ip != ",":
+					ip=ip.rstrip(",")
 					print("ip : "+ip)
+					return(ip)
+				else:
+					print("unknow")
+
 	
 	def guest_poweroff(arg):
 		pass
+	
+	def guest_ssh(arg):
+		THISFUNC=PRGNAME+".guest_ssh"
+		ip=vbctl.guest_property(arg)
+		if ip == "unknow" :
+			logit.debug(THISFUNC,"Cant ssh ip request returned "+ip)
+			message="Host IP for "+arg+" is not know, ssh impossible"
+			logit.debug(PRGNAME,message)
+		else:
+			logit.debug(THISFUNC,"Trying to ssh to ip "+str(ip))
+			command="ssh root@"+str(ip)
+			print(command)
+			os.system(command)
+			#pro=subprocess.Popen(command)
+			#pro.communicate()
+			
 
 def main():
 	#global DEBUG
