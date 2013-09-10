@@ -393,13 +393,14 @@ class vbctl():
 				pos=this.index("value:")
 				#print(this,pos)
 				ip=this[pos+1]
-				if ip != ",":
+				if ip != "," or ip != "None:" :
 					ip=ip.rstrip(",")
 					print("ip : "+ip)
 					return(ip)
 				else:
 					print("unknow")
-
+					return("unknow") 
+		return("unknow")
 	
 	def guest_poweroff(arg):
 		pass
