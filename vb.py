@@ -6,14 +6,14 @@
 """
 
 """
+	DONE
+	* Improve date display with -l option (...6T14:14:43.847000000)
+	* Change option S that easy mistake with -s 
 	TODO 
 	* Improve ssh connection to fork and exit instead of os.system
 	* Improve VRDE settings 
-	* Change option S that easy mistake with -s 
-	* Improve date display with -l option (...6T14:14:43.847000000)
 	* Add IP in -l (interesting ?)
-	* Improve extention pack (install and display info)
-	http://download.virtualbox.org/virtualbox/$VBOXVER/Oracle_VM_VirtualBox_Extension_Pack-$VBOXVER.vbox-extpack
+	* Improve extention pack (install and display info) => Check other OS  
 
 """
 
@@ -147,9 +147,12 @@ def parseargs(argv):
 			end(0)
 		elif opt == '-l' :
 			for i in vbctl.list().split():
+				logit.debug(PRGNAME,"guest_status")
 				status=vbctl.guest_status(i,'VMState')
+				logit.debug(PRGNAME,"guest_status")
 				status=status+" since "+vbctl.guest_status(i,'VMStateChangeTime')
-				logit.info(PRGNAME,"guest "+i+" "+status)
+				status=status.split()[0]+" ("+status.split()[2][0:10]+")"
+				logit.info(PRGNAME,i+" "+status)
 			cmd="VBoxManage list extpacks"
 			output=execute(cmd).decode('utf-8')
 			pack=0
@@ -161,12 +164,18 @@ def parseargs(argv):
 					packlist.append(i)
 				if re.match('VRDE Module',i):
 					vrde=i	
-			if pack == 1 : 
+			if vrde != "":
 				logit.info(PRGNAME,"Extension found")
+				print(vrde)
+			if pack == 1 : 
 				for i in packlist:
 					print(i)
-			if vrde != "":
-				print(vrde)
+			else:
+				cmd="VBoxManage --version"
+				output=execute(cmd).decode('utf-8')
+				output=output.split('_')[0]
+				print(PRGNAME,"Download ext pack here : ")
+				print('http://download.virtualbox.org/virtualbox/'+output+'/Oracle_VM_VirtualBox_Extension_Pack-'+output+'.vbox-extpack')
 			end(0)
 		elif opt == '-L' :
 			status=vbctl.guest_details(arg)
