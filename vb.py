@@ -148,9 +148,10 @@ def parseargs(argv):
 		elif opt == '-l' :
 			for i in vbctl.list().split():
 				logit.debug(PRGNAME,"guest_status")
-				status=vbctl.guest_status(i,'VMState')
+				vmstruct=vbctl.guest_status(i,'none')
+				status=vbctl.guest_status(i,'VMState',vmstruct)
 				logit.debug(PRGNAME,"guest_status")
-				status=status+" since "+vbctl.guest_status(i,'VMStateChangeTime')
+				status=status+" since "+vbctl.guest_status(i,'VMStateChangeTime',vmstruct)
 				status=status.split()[0]+" ("+status.split()[2][0:10]+")"
 				logit.info(PRGNAME,i+" "+status)
 			cmd="VBoxManage list extpacks"
@@ -194,6 +195,22 @@ def parseargs(argv):
 			rez=vbctl.guest_start(arg)
 			end(0)
 		elif opt == '-S' :
+			list=vbctl.list().split()
+			found=0
+			if arg not in list:
+				for vm in list:
+					if str(re.search(arg,vm)) != 'None':
+						target=vm
+						found+=1
+				if found == 0 : 					
+					logit.error(PRGNAME,"vm not found "+arg)
+					end(1)
+				if found > 1 :
+					logit.error(PRGNAME,"vm name matching return more than 1 host for "+arg)
+					end(1)
+				else:
+					logit.info(PRGNAME,"vm name matching return "+target)
+					arg=target
 			status=vbctl.guest_ssh(arg)
 			end(0)	
 		elif opt == '-v' :
@@ -305,13 +322,13 @@ class vbctl():
 		if vbctl.exist(arg) == 0 :
                         logit.info(PRGNAME,"Machine "+arg+" do not exist")
                         end(0)
-		dict=vbctl.guest_status(arg)
+		dict=vbctl.guest_status(arg,'none')
 		if param != "default":
 			return(dict[param][0].strip('"'))
 		param=['ostype','VMState','memory','cpus','Forwarding(0)']
 		print("Name\t: {} ".format(arg))
-		dict=vbctl.guest_status(arg)
-		if vbctl.guest_status(arg,'vrde') == "on":
+		### not needed  ?###  dict=vbctl.guest_status(arg)
+		if vbctl.guest_status(arg,'vrde',dict) == "on":
 			param.append('vrdeports')
 		else:
 			param.append('vrde')
@@ -320,7 +337,8 @@ class vbctl():
 				print(i+"\t: {} ".format(dict[i][0].strip('"')))
 			else:
 				print(i+"\t: not set")
-		vbctl.guest_property(arg)
+		ip=vbctl.guest_property(arg)
+		print("ip \t: "+ip)
 	
 		#end(0)
 	def guest_pause(arg):
@@ -366,16 +384,22 @@ class vbctl():
 		print(output)
 		logit.debug(THISFUNC,"Starting proc exit")
 		end(0)
-	def guest_status(arg,ask="none"):
+	def guest_status(arg,ask,dict={}):
+		""" return showvminfo struct if ask == none 
+		or dict that contain the VBoxManage showvminfo result """
+		
 		THISFUNC=PRGNAME+".guest_status"
-		logit.debug(THISFUNC,"args => "+arg+" "+ask)	
-		showvminfo={}
-		cmd="VBoxManage showvminfo --machinereadable "+arg
-		output=execute(cmd).decode("utf-8")
-		for el in output.split("\n"):
-			el2=el.split('=')
-			key,value=el2[0],el2[1:]
-			showvminfo[key]=value
+		logit.debug(THISFUNC,"args => "+arg+" "+ask)
+		if dict == {}:
+			showvminfo={}
+			cmd="VBoxManage showvminfo --machinereadable "+arg
+			output=execute(cmd).decode("utf-8")
+			for el in output.split("\n"):
+				el2=el.split('=')
+				key,value=el2[0],el2[1:]
+				showvminfo[key]=value
+		else:
+			showvminfo=dict
 		if ask=="display":
 			print(showvminfo)
 			return(showvminfo)
@@ -402,12 +426,11 @@ class vbctl():
 				pos=this.index("value:")
 				#print(this,pos)
 				ip=this[pos+1]
-				if ip != "," or ip != "None:" :
+				if ip != "," and ip != "None:" and ip != "" :
 					ip=ip.rstrip(",")
-					print("ip : "+ip)
 					return(ip)
 				else:
-					print("unknow")
+					#print("unknow")
 					return("unknow") 
 		return("unknow")
 	
@@ -417,10 +440,11 @@ class vbctl():
 	def guest_ssh(arg):
 		THISFUNC=PRGNAME+".guest_ssh"
 		ip=vbctl.guest_property(arg)
+		#print('ip'+ip+"unknow")
 		if ip == "unknow" :
 			logit.debug(THISFUNC,"Cant ssh ip request returned "+ip)
 			message="Host IP for "+arg+" is not know, ssh impossible"
-			logit.debug(PRGNAME,message)
+			logit.info(PRGNAME,message)
 		else:
 			logit.debug(THISFUNC,"Trying to ssh to ip "+str(ip))
 			command="ssh root@"+str(ip)
