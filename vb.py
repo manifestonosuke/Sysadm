@@ -10,10 +10,12 @@
 	* Improve date display with -l option (...6T14:14:43.847000000)
 	* Change option S that easy mistake with -s 
 	TODO 
+	* Show all ips when -L 
 	* Improve ssh connection to fork and exit instead of os.system
 	* Improve VRDE settings 
 	* Add IP in -l (interesting ?)
 	* Improve extention pack (install and display info) => Check other OS  
+	* Show disk info on -L
 
 """
 
@@ -325,7 +327,7 @@ class vbctl():
 		dict=vbctl.guest_status(arg,'none')
 		if param != "default":
 			return(dict[param][0].strip('"'))
-		param=['ostype','VMState','memory','cpus','Forwarding(0)']
+		param=['ostype','VMState','memory','cpus']
 		print("Name\t: {} ".format(arg))
 		### not needed  ?###  dict=vbctl.guest_status(arg)
 		if vbctl.guest_status(arg,'vrde',dict) == "on":
@@ -337,9 +339,32 @@ class vbctl():
 				print(i+"\t: {} ".format(dict[i][0].strip('"')))
 			else:
 				print(i+"\t: not set")
-		ip=vbctl.guest_property(arg)
-		print("ip \t: "+ip)
-	
+		# ip forward check until forward(0) dont exist 
+		for N in range(0,6):
+			label='Forwarding('+str(N)+')'
+			#label1='Forwarding(0)'
+			#print(label)
+			#print(label1)
+			#logit.info(PRGNAME,label)
+			#dict.keys()
+			if label in dict.keys():
+				print(label+"\t: {} ".format(dict[label][0].strip('"')))
+				#dict[label]
+
+		for N in range(1,8):
+			label='nic'+str(N)
+			logit.debug(PRGNAME,"Checking nic conf for "+label)
+			if label in dict.keys():
+				#print(dict[label][0])
+				if dict[label][0].strip('"') == 'none':
+					break
+				else:
+					print(label+"\t: {} ".format(dict[label][0].strip('"')))
+					if dict[label] == "hostonly" :
+						label1='hostonlyadapter2'+str(N)
+						print(label+"\t: {} ".format(dict[label1][0].strip('"')))
+				ip=vbctl.guest_property(arg)
+				print("ip"+str(N)+" \t: "+ip)
 		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
@@ -414,25 +439,25 @@ class vbctl():
 			return(status)
 
 	# Now only returning IP (0)	
-	def guest_property(arg,ask="none"):
+	def guest_property(arg,query="/VirtualBox/GuestInfo/Net/0/V4/IP",field="value:"):
 		THISFUNC=PRGNAME+".guest_status"
-		logit.debug(THISFUNC,"args => "+arg+" "+ask)	
+		logit.debug(THISFUNC,"args => "+arg+" "+query)	
 		showvminfo={}
 		cmd="VBoxManage guestproperty enumerate "+arg
 		output=execute(cmd).decode("utf-8")
 		for el in output.split("\n"):
-			if "/VirtualBox/GuestInfo/Net/0/V4/IP" in el:
+			if query in el:
 				this=re.split(' ',el)
-				pos=this.index("value:")
+				pos=this.index(field)
 				#print(this,pos)
-				ip=this[pos+1]
-				if ip != "," and ip != "None:" and ip != "" :
-					ip=ip.rstrip(",")
-					return(ip)
+				ret=this[pos+1]
+				if ret != "," and ret != "" :
+					ret=ret.rstrip(",")
+					return(ret)
 				else:
 					#print("unknow")
 					return("unknow") 
-		return("unknow")
+		return("none")
 	
 	def guest_poweroff(arg):
 		pass
