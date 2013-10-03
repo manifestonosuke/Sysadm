@@ -363,7 +363,8 @@ class vbctl():
 					if dict[label] == "hostonly" :
 						label1='hostonlyadapter2'+str(N)
 						print(label+"\t: {} ".format(dict[label1][0].strip('"')))
-				ip=vbctl.guest_property(arg)
+				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
+				ip=vbctl.guest_property(arg,dummy)
 				print("ip"+str(N)+" \t: "+ip)
 		#end(0)
 	def guest_pause(arg):
