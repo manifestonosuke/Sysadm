@@ -315,6 +315,7 @@ class Blkid():
 		return self.blkstruct
 
 	def get_device_label(self,option):
+		print('toto')
 		for device in self.blkstruct:
 			if self.blkstruct[device]['TYPE'] not in option['TYPE']:
 				continue
