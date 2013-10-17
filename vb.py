@@ -15,7 +15,7 @@
 	* Improve VRDE settings 
 	* Add IP in -l (interesting ?)
 	* Improve extention pack (install and display info) => Check other OS  
-	* Show disk info on -L
+	* Show disk info on -L (VBoxManage showvminfo openwave_ows3_1380702533  --machinereadable  |grep -i "SATA Controller" puis vboxmanage hdinfo)
 
 """
 
@@ -197,22 +197,11 @@ def parseargs(argv):
 			rez=vbctl.guest_start(arg)
 			end(0)
 		elif opt == '-S' :
-			list=vbctl.list().split()
-			found=0
-			if arg not in list:
-				for vm in list:
-					if str(re.search(arg,vm)) != 'None':
-						target=vm
-						found+=1
-				if found == 0 : 					
-					logit.error(PRGNAME,"vm not found "+arg)
-					end(1)
-				if found > 1 :
-					logit.error(PRGNAME,"vm name matching return more than 1 host for "+arg)
-					end(1)
-				else:
-					logit.info(PRGNAME,"vm name matching return "+target)
-					arg=target
+			arg=vbctl.exist(arg,1)
+			if arg == "none" :
+				logit.info(PRGNAME,"Machine "+arg+" do not exist")
+				sys.exit(0)
+			print(arg)
 			status=vbctl.guest_ssh(arg)
 			end(0)	
 		elif opt == '-v' :
@@ -281,20 +270,34 @@ class vbctl():
 		value=b
 	def setvrde():
 		pass
-	def exist(arg,out=0):
+	def exist(arg,fuzzy=0):
 		THISFUNC=PRGNAME+".exist"
 		logit.debug(THISFUNC,"checking if "+arg+" exist")
-		list=vbctl.list()
-		logit.debug(THISFUNC,"vbox list "+list)
+		list=vbctl.list().split()
+		logit.debug(THISFUNC,"vbox list "+str(list))
 		found=0
-		for i in list.split():
-			if i == arg :
-				found=1
-				break
-		if found == 0 and out == 1 :
-			logit.info(PRGNAME,"Machine "+arg+" do not exist")
-			end(0)
-		return found 
+		if fuzzy == 0:
+			if arg in list: 
+				return 1
+			else:
+				return 0
+				
+		for vm in list:
+			if str(re.search(arg,vm)) != 'None':
+				target=vm
+				found+=1
+		logit.debug(PRGNAME,"fuzzy search "+str(found)+" "+arg+" "+str(list))
+		if found == 0 :
+			logit.debug(PRGNAME,"vm not found "+arg)
+			return "none"
+		if found > 1 :
+			logit.error(PRGNAME,"vm name matching return more than 1 host for "+arg)
+			exit(2)
+		else:
+			logit.debug(PRGNAME,"vm name matching return "+target)
+			found=1
+			return target
+ 
 	def guest_off(arg):
 		THISFUNC=PRGNAME+".guest_off"
 		logit.debug(THISFUNC,"Pausing")
@@ -321,9 +324,10 @@ class vbctl():
 		return(message)
 	def guest_details(arg,param="default"):
 		THISFUNC=PRGNAME+".guestdetails"
-		if vbctl.exist(arg) == 0 :
-                        logit.info(PRGNAME,"Machine "+arg+" do not exist")
-                        end(0)
+		arg=vbctl.exist(arg,1)
+		if arg == "none" :
+			logit.info(PRGNAME,"Machine "+arg+" do not exist")
+			end(0)
 		dict=vbctl.guest_status(arg,'none')
 		if param != "default":
 			return(dict[param][0].strip('"'))
@@ -350,7 +354,7 @@ class vbctl():
 			if label in dict.keys():
 				print(label+"\t: {} ".format(dict[label][0].strip('"')))
 				#dict[label]
-
+		# Nic info
 		for N in range(1,8):
 			label='nic'+str(N)
 			logit.debug(PRGNAME,"Checking nic conf for "+label)
@@ -359,10 +363,11 @@ class vbctl():
 				if dict[label][0].strip('"') == 'none':
 					break
 				else:
-					print(label+"\t: {} ".format(dict[label][0].strip('"')))
-					if dict[label] == "hostonly" :
-						label1='hostonlyadapter2'+str(N)
-						print(label+"\t: {} ".format(dict[label1][0].strip('"')))
+					if dict[label][0].strip('"') == "hostonly" :
+						label1='hostonlyadapter'+str(N)
+						print(label+"\t: hostonly ({})".format(dict[label1][0].strip('"')))
+					else:
+						print(label+"\t: {} ".format(dict[label][0].strip('"')))
 				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
 				ip=vbctl.guest_property(arg,dummy)
 				print("ip"+str(N)+" \t: "+ip)
