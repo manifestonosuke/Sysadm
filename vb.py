@@ -366,6 +366,16 @@ class vbctl():
 				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
 				ip=vbctl.guest_property(arg,dummy)
 				print("ip"+str(N)+" \t: "+ip)
+		
+		for N in range(0,6):
+			label='"SATA Controller-'+str(N)+'-0"'
+			label1='SATA'+str(N)
+		#	print(label1)
+			#logit.info(PRGNAME,label)
+			dict.keys()
+			if label in dict.keys():
+				print(label+"\t: {} ".format(dict[label][0].strip('"')))
+				#dict[label]
 		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
