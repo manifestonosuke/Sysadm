@@ -117,12 +117,28 @@ class logit():
 def parseargs(argv):
 	global DEBUG
 	#print('debug '+str(DEBUG))
+	if '-d' in sys.argv :
+		print('debug',sys.argv)
+		DEBUG=1
+		while "-d" in sys.argv : sys.argv.pop(sys.argv.index("-d"))	
+		print('debug',sys.argv)
 	logit.debug(PRGNAME+"...parseargs","Parsing args")
 	if len(sys.argv) == 1:
 		logit.debug(PRGNAME,"argument parsing, only 0 arg")
 		vmlist=vbctl.list()
 		logit.info(PRGNAME,vmlist)
 		end()
+	if len(sys.argv) == 2 and sys.argv[1][0] != "-" :
+		logit.debug(PRGNAME,"argument parsing, only 1 arg")
+		if vbctl.exist(sys.argv[1],silent=1) == 0 :
+                        logit.info(PRGNAME,"Machine "+sys.argv[1]+" do not exist")
+                        sys.exit(0)
+		else:
+			#vmlist=vbctl.list()
+			#print(sys.argv[1])
+			AA=vbctl.guest_status(sys.argv[1],'VMState')
+			print(AA)
+			end()
 	try:
 		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:0:", ["help"])
 	except getopt.GetoptError:
@@ -131,10 +147,10 @@ def parseargs(argv):
 		sys.exit(2)
 	# print(opts,args)
 	# Debug option need to be setup first
-	for i in opts:
-		if i[0] == '-d':
-			DEBUG=1
-	logit.debug(PRGNAME," PARSE : "+str(opts)+" : "+str(args))
+	#for i in opts:
+	#	if i[0] == '-d':
+	#		DEBUG=1
+	logit.debug(PRGNAME," APARSE : "+str(opts)+" : "+str(args))
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
@@ -270,7 +286,7 @@ class vbctl():
 		value=b
 	def setvrde():
 		pass
-	def exist(arg,fuzzy=0):
+	def exist(arg,fuzzy=0,silent=0):
 		THISFUNC=PRGNAME+".exist"
 		logit.debug(THISFUNC,"checking if "+arg+" exist")
 		list=vbctl.list().split()
@@ -288,13 +304,15 @@ class vbctl():
 				found+=1
 		logit.debug(PRGNAME,"fuzzy search "+str(found)+" "+arg+" "+str(list))
 		if found == 0 :
-			logit.debug(PRGNAME,"vm not found "+arg)
+			if silent != 1 : 
+				logit.debug(PRGNAME,"vm not found "+arg)
 			return "none"
 		if found > 1 :
 			logit.error(PRGNAME,"vm name matching return more than 1 host for "+arg)
 			exit(2)
 		else:
-			logit.debug(PRGNAME,"vm name matching return "+target)
+			if silent != 1 :
+				logit.debug(PRGNAME,"vm name matching return "+target)
 			found=1
 			return target
  
