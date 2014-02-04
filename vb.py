@@ -126,7 +126,8 @@ def parseargs(argv):
 	if len(sys.argv) == 1:
 		logit.debug(PRGNAME,"argument parsing, only 0 arg")
 		vmlist=vbctl.list()
-		logit.info(PRGNAME,vmlist)
+		if len(vmlist) != 0 : 
+			logit.info(PRGNAME,vmlist)
 		end()
 	if len(sys.argv) == 2 and sys.argv[1][0] != "-" :
 		logit.debug(PRGNAME,"argument parsing, only 1 arg")
