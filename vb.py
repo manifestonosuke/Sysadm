@@ -101,6 +101,9 @@ class logit():
 	def info(p,m):
 		print("%-10s : %-10s : %-30s" % ("INFO",p,m))
 	
+	def warning(p,m):
+		print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
+	
 	def error(p,m):
 		print("%-10s : %-10s : %-30s" % ("ERROR",p,m))	
 		end(9)
@@ -166,6 +169,9 @@ def parseargs(argv):
 			end(0)
 		elif opt == '-l' :
 			for i in vbctl.list().split():
+				if "<inaccessible>" in i:
+					logit.warning(PRGNAME,i+" "+status)
+					continue
 				logit.debug(PRGNAME,"guest_status")
 				vmstruct=vbctl.guest_status(i,'none')
 				status=vbctl.guest_status(i,'VMState',vmstruct)
@@ -338,8 +344,8 @@ class vbctl():
 		list=output.split("\n")[::]
 		message=""
 		for el in list:
-			if len(el) != 0:	
-				message=el.split('"')[1]+" "+message
+		    if len(el) != 0:	
+		      message=el.split('"')[1]+" "+message
 		return(message)
 	def guest_details(arg,param="default"):
 		THISFUNC=PRGNAME+".guestdetails"
