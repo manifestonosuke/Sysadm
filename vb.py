@@ -59,12 +59,15 @@ def trap():
 def usage():
 	#global PRGNAME
 	ARGS=""
-	message="""Handle command line for vbox easily
-Run without arg will list vbox on the machine 
+	message="""
+	Handle command line for vbox easily
+	* Run without arg will list vbox on the machine 
+	* Run without 1 argument which is a vm name give the running status of a vm
 """
 	print(message)
-	message="usage : "+PRGNAME+"\n"
+	message="usage : "+PRGNAME+" [vm name] | [OPTION] [vm name]\n"
 	add="""
+	
 	-d : run in debug mode
         -l : List VM with power status (State) and general info about virtualbox configuration
         -L : Give summary status of a named vm 
