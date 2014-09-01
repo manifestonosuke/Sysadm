@@ -399,6 +399,34 @@ class vbctl():
 				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
 				ip=vbctl.guest_property(arg,dummy)
 				print("ip"+str(N)+" \t: "+ip)
+
+		hdinfo={}
+		uuids=[]
+		#diskpattern="SATA Controller-ImageUUID"
+		diskpattern="SATA-*ImageUUID"
+		for i in dict.keys():
+			if str(re.search(diskpattern,str(i))) != 'None':
+				uuids=dict[i]
+
+		if len(uuids) != 0 :		
+			#print("UUID : Size : Real size : Filename")
+			for uuid in uuids:
+				#print(uuid)
+				cmd="vboxmanage showhdinfo "+uuid
+				output=execute(cmd).decode("utf-8")
+				for el in output.split("\n"):
+					el2=el.split(':')
+					key,value=el2[0],el2[1:]
+					hdinfo[key]=value
+
+				#print("Disk ",end='=')
+				print("Disk UUID : ",hdinfo["UUID"][0].lstrip().split(" ")[0],end=" , ")
+				print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
+				print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
+				print("File : ",hdinfo["Location"][0].split("/").pop())
+		else:
+			print("No disk found as SATA ImageUUID")
+	
 		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
@@ -443,7 +471,7 @@ class vbctl():
 		print(output)
 		logit.debug(THISFUNC,"Starting proc exit")
 		end(0)
-	def guest_status(arg,ask,dict={}):
+	def guest_status(arg,ask='none',dict={}):
 		""" return showvminfo struct if ask == none 
 		or dict that contain the VBoxManage showvminfo result """
 		
