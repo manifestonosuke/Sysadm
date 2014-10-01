@@ -403,8 +403,10 @@ class vbctl():
 		hdinfo={}
 		uuids=[]
 		#diskpattern="SATA Controller-ImageUUID"
-		diskpattern="SATA-*ImageUUID"
+		#diskpattern="SATA-*ImageUUID"
+		diskpattern="SATA*Controller*"
 		for i in dict.keys():
+			print(i)
 			if str(re.search(diskpattern,str(i))) != 'None':
 				uuids=dict[i]
 
