@@ -1,0 +1,34 @@
+
+SLEEP=0.1
+URI=cdmi1/blob2/
+
+for i in $(find . -type f | sed 's/^\.\///g' ) ;  
+do
+	SZ=$(stat $i| grep Size | awk '{print $2}')
+	echo "curl -s -XPUT http://$URI/$i --data-binary @$i "
+	REZ=$(curl -s -XPUT http://$URI/$i --data-binary @$i )
+	echo $REZ |grep -q "404 - No such container" 2>&1 > /dev/null
+	if [ $? -eq 0 ] ; 
+	then
+		A=$(basename $i) 
+		D=$(dirname $i) 
+		echo $D
+		d=/ 
+		for j in $(echo $D | sed 's/\// /g') ; 
+		do
+			#echo "diiiiii $j"
+			d=$d/$j/
+			echo "creating curl -s -XPUT http://$URI$d"
+			REZ=$(curl -s -XPUT http://$URI$d)
+		done 
+	fi
+	curl -s -XPUT http://$URI/$i --data-binary @$i
+	ZS=$(curl -s -XGET http://$URI/$i?metadata | grep cdmi_size | cut -d ':' -f2 | sed s/,//)
+	if [ $SZ -ne $ZS ]; 
+	then
+		echo "WARNING size differs $SZ $ZS"
+	fi
+	#curl -XPUT http://cdmi1/blob/$A --data-binary @$i ; 
+	sleep $SLEEP ; 
+done 
+
