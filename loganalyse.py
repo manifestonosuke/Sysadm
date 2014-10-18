@@ -1,5 +1,13 @@
 #!/usr/bin/python2
 
+'''
+    TODO 
+        1   setup the sample metric like second minute hour day ...
+        2   select date to display (like -D 23/Oct/2014)
+        3   review the ugly print statement
+'''
+
+
 import os 
 import sys
 import getopt
@@ -44,8 +52,122 @@ def parseargs(argv):
                 elif opt in "-f":
                         option['file']=arg
                         #print "using File "+file,
+                elif opt in "-u":
+                        option['unit']=arg 
                 elif opt in "-x":
                         option['csv']=1
+
+class Message:
+        """
+        print message according method and attribute
+        if attribute level is set to certain value one can display more messages
+        sample : if level is set to debug call to method debug will display message
+                otherwise it will be silent
+        """
+        level=""
+        level_value=[ 'info','debug','verbose','run','error','fatal','silent','warning']
+        def __init__(self):
+                Message.level=""
+
+        def setlevel(cls,level):
+                if not level in Message.level_value:
+                        print("FATAL\t:\tlevel {} not defined".format(Message.level))
+                        raise ValueError("undefined value for Message class")
+                Message.level=level
+        setlevel=classmethod(setlevel)
+
+        def getlevel(cls):
+                if len(Message.level) == 0:
+                        return('unset')
+                return(Message.level)
+        getlevel=classmethod(getlevel)
+
+        def info(cls,p,m):
+                print("%-10s : %-10s : %-30s" % ("INFO",p,m))
+        info=classmethod(info)
+
+        def warning(cls,p,m):
+                print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
+        warning=classmethod(warning)
+
+        def debug(cls,p,m):
+                if Message.level == 'debug':
+                        print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
+        debug=classmethod(debug)
+
+        def verbose(cls,p,m):
+                if Message.level == 'verbose':
+                        print("%-10s : %-10s : %-30s" % ("VERBOSE",p,m))
+        verbose=classmethod(verbose)
+
+        def run(cls,p,m):
+                if Message.level == 'run':
+                        print("%-10s : %-10s : %-30s" % ("INFO",p,m))
+        run=classmethod(run)
+
+        def error(cls,p,m):
+                print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+        error=classmethod(error)
+
+        def fatal(cls,p,m,extra=99):
+                print("%-10s : %-10s : %-30s" % ("FATAL",p,m))
+                end(extra)
+        fatal=classmethod(fatal)
+
+        def test(cls):
+                print("level",Message.level)
+                print("level_value",Message.level_value)
+        test=classmethod(test)
+
+msg=Message()
+msg.setlevel('debug')
+
+class Logfile:
+    def __init__(self,logfile,kind="apache"):
+        self.logfile=logfile
+        self.kind=kind
+        try:
+            self.fd=open(logfile)
+        except:
+            print "ERROR : could not open file "+logfile
+
+    def readone(self):
+        l=self.fd.readline()
+        if not l:
+            return(0)
+        #print l
+        self.line=l
+        return(1)
+
+    def printline(self):
+        print self.line
+
+    def prepare(self):
+        if self.kind=="apache":
+            self.fulldate=self.line.split("[")[1].split("]")[0]
+            self.payload=self.line.split('"')[1]
+            self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
+            self.hms=self.hour+":"+self.minute+":"+self.second
+            self.ms=None
+        else:
+            raise valueError
+
+
+def displaylinestat(this,option):
+    for i in PATTERN:
+        if i in this.keys():
+            if 'csv' in option:
+                value=this[i]+0
+                print str(this[i])+csvchar,
+            else:
+                print '{0}:{1} '.format(i,str(this[i])),
+        else:
+            if 'csv' in option:
+                print '{0}{1}'.format(0,str(csvchar)),
+            else:
+                print '{0}:{1} '.format(i,'0'),
+    this[i]=0
+
 
 count=0 
 option={}
@@ -53,15 +175,15 @@ option={}
 file="dovecot_error_log"
 option['file']=file
 option['count']=-1
+kind="apache"
 #refday="30/Sep/2014"
 refday=""
 
 if refday != "":
     print "Lookin for log for "+refday+" on file "+file
-prevsec=-1
+previous=-1
 
 this={}
-nb=0
 prevhms=-1
 PATTERN=('PUT','GET','DELETE','HEAD')
 
@@ -79,18 +201,16 @@ if 'ALL' in option:
     refday=""
 
 if 'csv' in option:
-    print '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}'.format('date',csvchar,'hour',csvchar,'PUT',csvchar,'GET',csvchar,'DELETE',csvchar,'HEAD')
+    print 'date'+csvchar+'hour'+csvchar+'PUT'+csvchar+'GET'+csvchar+'DELETE'+csvchar+'HEAD'
 
-try: 
-    fd=open(option['file'])
-except:
-    print "ERROR : could not open file "+file
-    exit(9)
+Log=Logfile(option['file'],kind)
 
+
+for i in PATTERN: 
+    this[i]=0
 
 while True:
-    nb+=1
-    l=fd.readline()
+    l=Log.readone()  
     if not l: 
         if 'debug' in option:
            print "DEBUG : EOF for file "+file
@@ -107,38 +227,35 @@ while True:
                 else:
                     print '{0}:{1} '.format(i,'0'),
         break
-
     
-    payload=l.split('"')[1]
-    fulldate=l.split("[")[1].split("]")[0]
-    #day=fulldate.split(':')[0].split(':')[0]
-    day,h,m,s=fulldate.split()[0].split(':')
-    hms=h+":"+m+":"+s
     count+=1
+    Log.prepare()
     if refday != "":
         displaydate=refday
         if day != refday: 
             print 'cont'+refday+":::"
         continue
     else:
-       displaydate=day
-    Q=payload.split()[0]
+       displaydate=Log.day
+    Q=Log.payload.split()[0]
     if 'debug' in option: 
         print Q
     if Q in this.keys():
         this[Q]=this[Q]+1
     else:
         this[Q]=1 
-    if prevsec == -1:
-        prevsec=s
-        prevhms=hms
+    if previous == -1:
+        previous=Log.second
+        prevhms=Log.hms
     else:
-        if prevsec != s:
-            print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
+        if previous != Log.second:
+            #print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
+            print displaydate+str(csvchar)+prevhms+str(csvchar),
             for i in PATTERN:
                 if i in this.keys():
                     if 'csv' in option:
-                        print '{0}{1}'.format(str(this[i]),str(csvchar)),
+                        value=this[i]+0
+                        print str(this[i])+csvchar,
                     else:
                         print '{0}:{1} '.format(i,str(this[i])),
                 else:
@@ -148,13 +265,11 @@ while True:
                         print '{0}:{1} '.format(i,'0'),
                 this[i]=0
             print
-            prevsec=s
-            prevhms=hms
-        #else:
-        #    print h,m,s 
+            previous=Log.second
+            prevhms=Log.hms
     if count == int(option['count']):
         print "Reaching limit lines parsed  "+option['count']+" lines"
         break
-    #else:
 
 exit(2)
+
