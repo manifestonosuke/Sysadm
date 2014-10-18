@@ -6,23 +6,6 @@ import getopt
 
 PRGNAME=os.path.basename(sys.argv[0])
 
-count=0 
-option={}
-
-file="dovecot_error_log"
-option['file']=file
-option['count']=-1
-#refday="30/Sep/2014"
-refday=""
-
-if refday != "":
-    print "Lookin for log for "+refday+" on file "+file
-prevsec=-1
-
-this={}
-nb=0
-prevhms=-1
-PATTERN=('PUT','GET','DELETE','HEAD')
 
 def usage():
         global PRGNAME
@@ -30,6 +13,14 @@ def usage():
         print "debug sys args",sys.argv
         #for arg in sys.argv:
         #       print arg
+        print '''
+        loganalyze -f FILE 
+        -A      Analyze all the file
+        -c      Analyze only this count of files
+        -d      Debug
+        -f      Use file 
+        -x      Use csv format
+        '''
 
 def parseargs(argv):
         try:
@@ -54,39 +45,88 @@ def parseargs(argv):
                         option['file']=arg
                         #print "using File "+file,
                 elif opt in "-x":
-                        option['cvs']=1
+                        option['csv']=1
+
+count=0 
+option={}
+
+file="dovecot_error_log"
+option['file']=file
+option['count']=-1
+#refday="30/Sep/2014"
+refday=""
+
+if refday != "":
+    print "Lookin for log for "+refday+" on file "+file
+prevsec=-1
+
+this={}
+nb=0
+prevhms=-1
+PATTERN=('PUT','GET','DELETE','HEAD')
+
 
 if (len(sys.argv) != 1) :
     parseargs(sys.argv[1:])
 
 
+if 'csv' in option:
+    csvchar=';'
+else:
+    csvchar=" "
+
 if 'ALL' in option:
     refday=""
-if 'cvs' in option:
-    print '{0:10s} {1:10s} {2:7s}{3:7s}{4:7s}{5:7s}'.format('date','hour','PUT','GET','DELETE','HEAD')
 
-fd=open(option['file'])
+if 'csv' in option:
+    print '{0}{1}{2}{3}{4}{5}{6}{7}{8}{9}{10}'.format('date',csvchar,'hour',csvchar,'PUT',csvchar,'GET',csvchar,'DELETE',csvchar,'HEAD')
+
+try: 
+    fd=open(option['file'])
+except:
+    print "ERROR : could not open file "+file
+    exit(9)
+
+
 while True:
     nb+=1
     l=fd.readline()
-    lq=l.split('"')[1]
-    ld=l.split("[")[1].split("]")[0]
-    ldd=ld.split(':')[0].split(':')[0]
-    h,m,s=ld.split()[0].split(':')[1:]
+    if not l: 
+        if 'debug' in option:
+           print "DEBUG : EOF for file "+file
+        print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
+        for i in PATTERN:
+            if i in this.keys():
+                if 'csv' in option:
+                    print '{0}{1}'.format(str(this[i]),str(csvchar)),
+                else:
+                    print '{0}:{1} '.format(i,str(this[i])),
+            else:
+                if 'csv' in option:
+                    print '{0}{1}'.format(0,str(csvchar)),
+                else:
+                    print '{0}:{1} '.format(i,'0'),
+        break
+
+    
+    payload=l.split('"')[1]
+    fulldate=l.split("[")[1].split("]")[0]
+    #day=fulldate.split(':')[0].split(':')[0]
+    day,h,m,s=fulldate.split()[0].split(':')
     hms=h+":"+m+":"+s
     count+=1
     if refday != "":
         displaydate=refday
-        if ldd != refday: 
+        if day != refday: 
             print 'cont'+refday+":::"
         continue
     else:
-       displaydate=ldd
-    Q=lq.split()[0]
-    # this will contain the PUT/GET/DELETE ... 
+       displaydate=day
+    Q=payload.split()[0]
+    if 'debug' in option: 
+        print Q
     if Q in this.keys():
         this[Q]=this[Q]+1
-        #print this
     else:
         this[Q]=1 
     if prevsec == -1:
@@ -94,25 +134,20 @@ while True:
         prevhms=hms
     else:
         if prevsec != s:
-            string=""
-            fstring=""
-            print '{0} {1} '.format(displaydate,prevhms),
+            print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
             for i in PATTERN:
                 if i in this.keys():
-                    if 'cvs' in option:
-                        print '{0} '.format(str(this[i])),
+                    if 'csv' in option:
+                        print '{0}{1}'.format(str(this[i]),str(csvchar)),
                     else:
                         print '{0}:{1} '.format(i,str(this[i])),
                 else:
-                    if 'cvs' in option:
-                        print '{0} '.format(0),
+                    if 'csv' in option:
+                        print '{0}{1}'.format(0,str(csvchar)),
                     else:
                         print '{0}:{1} '.format(i,'0'),
                 this[i]=0
             print
-            #print '{0:20s} {1:10s} {2:7s}{3}'.format(refday,hms,Q,str(prevsec),string)
-            #print '{0} {1} {2}'.format(displaydate,hms,string)
-            #print '{0} {1} '.format(displaydate,prevhms),
             prevsec=s
             prevhms=hms
         #else:
