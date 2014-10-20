@@ -27,6 +27,7 @@ def usage():
         -c      Analyze only this count of files
         -d      Debug
         -f      Use file 
+        -u      Unit to sort data (hour/minute ...)
         -x      Use csv format
         '''
 
@@ -149,14 +150,24 @@ class Logfile:
             self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
             self.hms=self.hour+":"+self.minute+":"+self.second
             self.ms=None
-            self.all={'fulldate':fulldate}
+            #self.all={'fulldate':fulldate}
         else:
             raise valueError
 
 
     def unit(self,value):
-        print value
-        return self.value
+        if value in 'second':
+            return self.second
+        elif value in 'minute':
+            return self.minute
+        elif value in 'hour':
+            return self.hour 
+        elif value in 'day':
+            return self.day
+        elif value in 'month':
+            return self.month
+        else:
+            raise Exception("Unit not valid")
 
 
 
@@ -222,6 +233,11 @@ for i in PATTERN:
 if __name__ != '__main__':
     exit()
 
+if 'unit' in option:
+    zzzz=option['unit']
+else:
+    zzzz='minute'
+
 while True:
     l=Log.readone()  
     if not l: 
@@ -247,14 +263,14 @@ while True:
     else:
         this[Q]=1 
     if previous == -1:
-        previous=Log.second
+        previous=Log.unit(zzzz)
         prevhms=Log.hms
     else:
-        if previous != Log.second:
+        if previous != Log.unit(zzzz):
             #print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
             this=displaylinestat(this,option)
             print
-            previous=Log.second
+            previous=Log.unit(zzzz)
             prevhms=Log.hms
     if count == int(option['count']):
         print "Reaching limit lines parsed  "+option['count']+" lines"
