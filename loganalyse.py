@@ -149,11 +149,20 @@ class Logfile:
             self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
             self.hms=self.hour+":"+self.minute+":"+self.second
             self.ms=None
+            self.all={'fulldate':fulldate}
         else:
             raise valueError
 
 
+    def unit(self,value):
+        print value
+        return self.value
+
+
+
+
 def displaylinestat(this,option):
+    print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
     for i in PATTERN:
         if i in this.keys():
             if 'csv' in option:
@@ -166,8 +175,9 @@ def displaylinestat(this,option):
                 print '{0}{1}'.format(0,str(csvchar)),
             else:
                 print '{0}:{1} '.format(i,'0'),
-    this[i]=0
-
+        #if 'debug' in option: print this   
+        this[i]=0
+    return(this)
 
 count=0 
 option={}
@@ -209,23 +219,15 @@ Log=Logfile(option['file'],kind)
 for i in PATTERN: 
     this[i]=0
 
+if __name__ != '__main__':
+    exit()
+
 while True:
     l=Log.readone()  
     if not l: 
         if 'debug' in option:
            print "DEBUG : EOF for file "+file
-        print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
-        for i in PATTERN:
-            if i in this.keys():
-                if 'csv' in option:
-                    print '{0}{1}'.format(str(this[i]),str(csvchar)),
-                else:
-                    print '{0}:{1} '.format(i,str(this[i])),
-            else:
-                if 'csv' in option:
-                    print '{0}{1}'.format(0,str(csvchar)),
-                else:
-                    print '{0}:{1} '.format(i,'0'),
+        this=displaylinestat(this,option)
         break
     
     count+=1
@@ -250,20 +252,7 @@ while True:
     else:
         if previous != Log.second:
             #print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
-            print displaydate+str(csvchar)+prevhms+str(csvchar),
-            for i in PATTERN:
-                if i in this.keys():
-                    if 'csv' in option:
-                        value=this[i]+0
-                        print str(this[i])+csvchar,
-                    else:
-                        print '{0}:{1} '.format(i,str(this[i])),
-                else:
-                    if 'csv' in option:
-                        print '{0}{1}'.format(0,str(csvchar)),
-                    else:
-                        print '{0}:{1} '.format(i,'0'),
-                this[i]=0
+            this=displaylinestat(this,option)
             print
             previous=Log.second
             prevhms=Log.hms
