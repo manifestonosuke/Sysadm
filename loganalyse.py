@@ -2,9 +2,11 @@
 
 '''
     TODO 
-        1   setup the sample metric like second minute hour day ...
-        2   select date to display (like -D 23/Oct/2014)
+        DONE   setup the sample metric like second minute hour day ...
+        DONE   select date to display (like -D 23/Oct/2014)
         3   review the ugly print statement
+        4   replace old debug style with Message class 
+        5   Improve message class to set hierachie in debug level
 '''
 
 
@@ -29,17 +31,28 @@ def usage():
         -f      Use file 
         -u      Unit to sort data (hour/minute ...)
         -x      Use csv format
+
+        -D      Specify a day to display (format as original log file ie apache 01/Jan/2011)
+        -H      Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
         '''
 
 def parseargs(argv):
         try:
-                opts, args = getopt.getopt(argv, "Ac:dhf:u:x", ["help", "url="])
+                opts, args = getopt.getopt(argv, "Ac:dD:hH:f:u:x", ["help", "url="])
         except getopt.GetoptError:
                 usage()
                 sys.exit(2)
         #print "Parsing opt",opts,"arg",args
         global option
         global DEBUG
+        for i,el in enumerate(opts):
+                if '-d' in el:
+                        "remove -d arg from opts string and go debug"
+                        opts.pop(i)
+                        Message.setlevel('debug')
+                        Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
+                else:
+                        Message.setlevel('info')
         for opt, arg in opts:
                 if opt in ("-h", "--help"):
                         usage()
@@ -50,9 +63,13 @@ def parseargs(argv):
                         option['count'] = arg
                 elif opt == '-d':
                         DEBUG = 1
+                elif opt == "-D":
+                        option['day']=arg 
                 elif opt in "-f":
                         option['file']=arg
                         #print "using File "+file,
+                elif opt in "-H":
+                        option['day']=arg 
                 elif opt in "-u":
                         option['unit']=arg 
                 elif opt in "-x":
@@ -77,9 +94,11 @@ class Message:
                 Message.level=level
         setlevel=classmethod(setlevel)
 
-        def getlevel(cls):
+        def getlevel(cls,display=0):
                 if len(Message.level) == 0:
                         return('unset')
+                if display == 1:
+                    print "Message level : "+str(Message.level) 
                 return(Message.level)
         getlevel=classmethod(getlevel)
 
@@ -127,10 +146,14 @@ class Logfile:
     def __init__(self,logfile,kind="apache"):
         self.logfile=logfile
         self.kind=kind
+        if logfile == "":
+            print "ERROR : no file provided"
+            exit(2)
         try:
             self.fd=open(logfile)
         except:
             print "ERROR : could not open file "+logfile
+            raise IOError
 
     def readone(self):
         l=self.fd.readline()
@@ -150,6 +173,7 @@ class Logfile:
             self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
             self.hms=self.hour+":"+self.minute+":"+self.second
             self.ms=None
+            #self.elapsed=self.line.split('"')[2:].split(' ')[2]
             #self.all={'fulldate':fulldate}
         else:
             raise valueError
@@ -169,11 +193,8 @@ class Logfile:
         else:
             raise Exception("Unit not valid")
 
-
-
-
-def displaylinestat(this,option):
-    print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
+def displaylinestat(this,option,date,hour):
+    print '{0}{1}{2}{3}'.format(date,csvchar,hour,csvchar),
     for i in PATTERN:
         if i in this.keys():
             if 'csv' in option:
@@ -190,23 +211,13 @@ def displaylinestat(this,option):
         this[i]=0
     return(this)
 
-count=0 
 option={}
 
-file="dovecot_error_log"
+file=""
 option['file']=file
 option['count']=-1
 kind="apache"
-#refday="30/Sep/2014"
-refday=""
 
-if refday != "":
-    print "Lookin for log for "+refday+" on file "+file
-previous=-1
-
-this={}
-prevhms=-1
-PATTERN=('PUT','GET','DELETE','HEAD')
 
 
 if (len(sys.argv) != 1) :
@@ -227,54 +238,72 @@ if 'csv' in option:
 Log=Logfile(option['file'],kind)
 
 
-for i in PATTERN: 
-    this[i]=0
 
-if __name__ != '__main__':
-    exit()
+#if __name__ != '__main__':
+#    exit()
 
 if 'unit' in option:
     zzzz=option['unit']
 else:
     zzzz='minute'
 
-while True:
-    l=Log.readone()  
-    if not l: 
-        if 'debug' in option:
-           print "DEBUG : EOF for file "+file
-        this=displaylinestat(this,option)
-        break
-    
-    count+=1
-    Log.prepare()
-    if refday != "":
-        displaydate=refday
-        if day != refday: 
-            print 'cont'+refday+":::"
-        continue
-    else:
-       displaydate=Log.day
-    Q=Log.payload.split()[0]
-    if 'debug' in option: 
-        print Q
-    if Q in this.keys():
-        this[Q]=this[Q]+1
-    else:
-        this[Q]=1 
-    if previous == -1:
-        previous=Log.unit(zzzz)
-        prevhms=Log.hms
-    else:
-        if previous != Log.unit(zzzz):
-            #print '{0}{1}{2}{3}'.format(displaydate,csvchar,prevhms,csvchar),
-            this=displaylinestat(this,option)
-            print
-            previous=Log.unit(zzzz)
-            prevhms=Log.hms
-    if count == int(option['count']):
-        print "Reaching limit lines parsed  "+option['count']+" lines"
-        break
+#Message.setlevel('info')
+#Message.getlevel(1)
 
-exit(2)
+PATTERN=('PUT','GET','DELETE','HEAD')
+displaydate=""
+prevhms=-7
 
+def main(option):
+    prevhms=-9
+    previous=-1
+    this={}
+    for i in PATTERN: 
+        this[i]=0
+    counted=0 
+    count=0 
+    while True:
+	    l=Log.readone()  
+	    if not l: 
+	        if 'debug' in option:
+	           print "DEBUG : EOF for file "+file
+	        Message.debug(PRGNAME,"displaylinestat")
+	        if counted != 0:
+	            this=displaylinestat(this,option,displaydate,prevhms)
+	        else:
+	            Message.info(PRGNAME,"no line selected")
+	        break
+	    Log.prepare()
+	    displaydate=Log.day
+	    if 'day' in option:
+	        if Log.day != option['day']:
+	            continue
+	    else:
+	        counted+=1
+	    count+=1
+	    Q=Log.payload.split()[0]
+	    if 'debug' in option: 
+	        print Q
+	    if Q in this.keys():
+	        this[Q]=this[Q]+1
+	    else:
+	        this[Q]=1 
+	    if previous == -1:
+	        previous=Log.unit(zzzz)
+	        prevhms=Log.hms
+	    else:
+	        if previous != Log.unit(zzzz):
+	            #print '::::{0}{1}{2}{3}:::'.format(displaydate,csvchar,prevhms,csvchar),
+	            Message.debug(PRGNAME,"displaylinestat")
+	            this=displaylinestat(this,option,displaydate,prevhms)
+	            print
+	            previous=Log.unit(zzzz)
+	            prevhms=Log.hms
+	    if count == int(option['count']):
+	        print "Reaching limit lines parsed  "+option['count']+" lines"
+	        break
+    Message.debug(PRGNAME,"\ntotal lines, counted lines "+str(count)+":" +str(counted))
+    exit(0)
+
+if __name__ == '__main__':
+    main(option)
