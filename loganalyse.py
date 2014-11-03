@@ -38,7 +38,7 @@ def usage():
 
 def parseargs(argv):
         try:
-                opts, args = getopt.getopt(argv, "Ac:dD:hH:f:u:x", ["help", "url="])
+                opts, args = getopt.getopt(argv, "Ac:dD:hH:f:o:u:x", ["help", "url="])
         except getopt.GetoptError:
                 usage()
                 sys.exit(2)
@@ -74,6 +74,8 @@ def parseargs(argv):
                         option['unit']=arg 
                 elif opt in "-x":
                         option['csv']=1
+                elif opt in "-o":
+                        option['operation']=arg
 
 class Message:
         """
@@ -157,14 +159,16 @@ class Logfile:
 
     def readone(self):
         l=self.fd.readline()
+        #Message.debug('readone',l)
         if not l:
             return(0)
-        #print l
         self.line=l
         return(1)
 
     def printline(self):
-        print self.line
+        print self.line,
+        return(self.line)
+
 
     def prepare(self):
         if self.kind=="apache":
@@ -173,7 +177,7 @@ class Logfile:
             self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
             self.hms=self.hour+":"+self.minute+":"+self.second
             self.ms=None
-            #self.elapsed=self.line.split('"')[2:].split(' ')[2]
+            self.elapsed=self.line.split('*')[1]
             #self.all={'fulldate':fulldate}
         else:
             raise valueError
@@ -211,7 +215,19 @@ def displaylinestat(this,option,date,hour):
         this[i]=0
     return(this)
 
-option={}
+def calculate_elasped(this,total,date,hour):
+    print date+" "+hour,
+    for i in total.keys():
+        if this[i] != 0:
+            avg=total[i]/this[i]
+        else:
+            avg=0
+        print i+"("+str(this[i])+")"+" : "+str(avg),
+    print
+    #print 'end elapsed'
+
+#default option count rest command
+option={'operation':'rest'}
 
 file=""
 option['file']=file
@@ -235,7 +251,6 @@ if 'ALL' in option:
 if 'csv' in option:
     print 'date'+csvchar+'hour'+csvchar+'PUT'+csvchar+'GET'+csvchar+'DELETE'+csvchar+'HEAD'
 
-Log=Logfile(option['file'],kind)
 
 
 
@@ -253,23 +268,31 @@ else:
 PATTERN=('PUT','GET','DELETE','HEAD')
 displaydate=""
 prevhms=-7
-
 def main(option):
+    Message.debug(PRGNAME,":"+option['operation']+":")
+    Log=Logfile(option['file'],kind)
     prevhms=-9
     previous=-1
     this={}
+    total={}
     for i in PATTERN: 
         this[i]=0
+        total[i]=0
     counted=0 
     count=0 
     while True:
-	    l=Log.readone()  
+	    l=Log.readone() 
 	    if not l: 
+	        Message.debug(PRGNAME,"no more lines")
+                if option['operation'] == 'elapsed' :
+	            Message.debug(PRGNAME,"calculate_elasped")
+                    calculate_elasped(this,total,displaydate,prevhms)
+                    break
 	        if 'debug' in option:
 	           print "DEBUG : EOF for file "+file
-	        Message.debug(PRGNAME,"displaylinestat")
 	        if counted != 0:
 	            this=displaylinestat(this,option,displaydate,prevhms)
+                    print
 	        else:
 	            Message.info(PRGNAME,"no line selected")
 	        break
@@ -282,21 +305,34 @@ def main(option):
 	        counted+=1
 	    count+=1
 	    Q=Log.payload.split()[0]
+            Message.debug(PRGNAME,"Payload is : "+Q)
 	    if 'debug' in option: 
 	        print Q
-	    if Q in this.keys():
+            if option['operation'] == 'rest':
+                Message.debug(PRGNAME,"New op REST")
+	        if Q in this.keys():
+	            this[Q]=this[Q]+1
+	        else:
+	            this[Q]=1 
+            if option['operation'] == 'elapsed':
 	        this[Q]=this[Q]+1
-	    else:
-	        this[Q]=1 
+                total[Q]=total[Q]+int(Log.elapsed)
 	    if previous == -1:
 	        previous=Log.unit(zzzz)
 	        prevhms=Log.hms
 	    else:
 	        if previous != Log.unit(zzzz):
 	            #print '::::{0}{1}{2}{3}:::'.format(displaydate,csvchar,prevhms,csvchar),
-	            Message.debug(PRGNAME,"displaylinestat")
-	            this=displaylinestat(this,option,displaydate,prevhms)
-	            print
+                    if option['operation'] == 'elapsed':
+	                Message.debug(PRGNAME,"calculate_elasped")
+                        calculate_elasped(this,total,displaydate,prevhms)
+                        for i in PATTERN: 
+                            this[i]=0
+                            total[i]=0
+                    if option['operation'] == 'rest':
+	                Message.debug(PRGNAME,"displaylinestat")
+	                this=displaylinestat(this,option,displaydate,prevhms)
+	                print
 	            previous=Log.unit(zzzz)
 	            prevhms=Log.hms
 	    if count == int(option['count']):
