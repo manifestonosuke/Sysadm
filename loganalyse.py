@@ -73,7 +73,7 @@ def parseargs(argv):
 				elif opt in "-u":
 						option['unit']=arg 
 				elif opt in "-x":
-						option['csv']=1
+						option['format']='csv'
 				elif opt in "-o":
 						option['operation']=arg
 
@@ -218,6 +218,7 @@ def displaylinestat(this,option,date,hour):
 #process_elapsed_bydate(result,Log.day,Log.hms,Q,Log.elapsed)a
 # { result { substruct { 
 #{ 'date ' : { 'hour' : { 'GET' : [ 1 , 2 ] }, 'PUT' : [ total , count] }} 
+# results struct content the data /sec 
 def process_elapsed_bydate(result,date,time,operation,elapsed):
 	substruct={}
 	if not date in result.keys():
@@ -241,25 +242,101 @@ def process_elapsed_bydate(result,date,time,operation,elapsed):
 		result[date][time][operation][0]=total+elapsed
 		result[date][time][operation][1]+=1
 	else:
-		substruct[time]=result[date][time]
-		substruct[time][operation]=[elapsed,1]
+		#substruct[time]=result[date][time]
+		#substruct[time][operation]=[elapsed,1]
 		result[date][time][operation]=[elapsed,1]
 	return(result)		
 
+# Get a list of data sorted /sec and display according time value /day /sec /minute ..  
 def display_results(result,option={}):
-
+        prevday=day=None
+        prevhour=hour=None
+        prevmin=minute=None
+        prevsec=second=None
+        # total['GET'][0]=total ... GET[1]=count
+        total={}
+        output={}
+        #for i in result.keys():
+        #    for j in result[i].keys():
+        #        print i,j,result[i][j]
+        #return()
+        if 'unit' in option:
+            unit=option['unit']
+        else:
+            unit='second'
+        #i=date, j=hms, k=get/put/del... 0=# 1=count
+        if option['format']=='csv':
+            print "{0:12s}{1:10s}{2:7s}{3:7s}{4:7s}{5:7s}".format('day','time','GET','PUT','DELETE','HEAD')
 	for i in sorted(result.keys()):
+                if prevday==None: prevday=i
+                day=i
 		for j in sorted(result[i].keys()):
+                        h,m,s=j.split(':')
+                        if prevhour==None: prevhour=h
+                        if prevmin==None: prevmin=m
+                        if prevsec==None: prevsec=-1
+
 			Message.debug(PRGNAME,result[i][j])
-			print i+" : "+j+" : ",
+			#print i+" "+j+" ",
 			PATTERN=sorted(result[i][j].keys())
-			for k in PATTERN: 
-				total=result[i][j][k][0]
-				count=result[i][j][k][1]
-				avg=total/count
-				print k+"|"+str(count)+"|"+str(avg)+"|", 
-			print
-		print		
+			for k in PATTERN:
+                            if k not in total.keys():
+                                #print k,total,result[i][j][k][0]
+                                total[k]=[result[i][j][k][0],0]
+                                total[k][1]=result[i][j][k][1]
+                            else:
+		                total[k][0]=result[i][j][k][0]+total[k][0]
+	                        total[k][1]=result[i][j][k][1]+total[k][1]
+	                    #print k+"|"+str(count)+"|"+str(avg)+"|", 
+	                    #print k+"|"+str(count),
+                        Message.debug(PRGNAME,str(s)+","+str(prevsec))
+                        if unit == 'second' and prevsec != s:
+                            time=h+":"+m+":"+str(s) 
+                            total=display_results_print(total,i,time,option)
+                            prevsec=s
+                        if unit == 'minute' and prevmin != m:
+                            time=h+":"+prevmin+":00" 
+                            total=display_results_print(total,i,time,option)
+                            prevmin=m
+                        if unit == 'hour' and prevhour != h:
+                            time=prevhour+":"+m+":00" 
+                            total=display_results_print(total,i,time,option)
+                            prevhour=h
+                        if unit == 'day' and prevday != day:
+                            total=display_results_print(total,prevday,time,option)
+                            prevday=d
+        if unit != 'second':
+            display_results_print(total,i,j,option)
+
+
+def display_results_print(list,date,time,option):
+    """ get a list and display it while calculing stats"""
+    print date+" "+time+" ",
+    pattern=sorted(list.keys())
+    if option['format']=='csv':
+        #print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
+        pattern=['GET','PUT','DELETE','HEAD']
+    else:
+        pattern=sorted(list.keys())
+    for k in pattern:
+        if k not in list:
+            count="0"
+            avg="0"
+        else:
+            count=str(list[k][1])
+            if not list[k][1] == 0:
+                avg=list[k][0]/list[k][1]
+            else:
+                avg=0
+        if option['format']=='csv':
+            print "{0:6s}".format(count),
+        else:
+            print k+"|"+count,
+        if k in list:
+            del list[k]
+    print
+    return(list)                        
+                            
 
 def calculate_elasped(this,total,date,hour):
 	print date+" "+hour,
@@ -278,6 +355,7 @@ option={'operation':'rest'}
 file=""
 option['file']=file
 option['count']=-1
+option['format']="list"
 kind="apache"
 
 
@@ -326,9 +404,9 @@ def main(option):
 			""" no more lines in the file """ 
 			Message.debug(PRGNAME,"EOF for file "+file)
 			if counted != 0:
-				display_results(result)
+                                print
+				display_results(result,option)
 				#this=displaylinestat(this,option,displaydate,prevhms)
-				print
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
@@ -342,11 +420,12 @@ def main(option):
 		count+=1
 		if count%100 == 0: 
 			#print '\r>> You have finished %d%%' % i,
-			print '\r Line browsed %d' %count,
+			print '\rLine browsed %d' %count,
 		Q=Log.payload.split()[0]
 		Message.debug(PRGNAME,"Op is : "+Q)
 		result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
-	display_results(result)
+        # to treat where no data
+	#display_results(result,option)
 	exit(0)
 
 if __name__ == '__main__':
