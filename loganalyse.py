@@ -5,7 +5,7 @@
 		DONE   setup the sample metric like second minute hour day ...
 		DONE   select date to display (like -D 23/Oct/2014)
 		3   review the ugly print statement
-		4   replace old debug style with Message class 
+		DONE   replace old debug style with Message class 
 		5   Improve message class to set hierachie in debug level
 '''
 
@@ -20,9 +20,6 @@ PRGNAME=os.path.basename(sys.argv[0])
 def usage():
 		global PRGNAME
 		print PRGNAME,"usage"
-		print "debug sys args",sys.argv
-		#for arg in sys.argv:
-		#	   print arg
 		print '''
 		loganalyze -f FILE 
 		-A	  Analyze all the file
@@ -276,8 +273,7 @@ def display_results(result,option={}):
                         if prevmin==None: prevmin=m
                         if prevsec==None: prevsec=-1
 
-			Message.debug(PRGNAME,result[i][j])
-			#print i+" "+j+" ",
+			#Message.debug(PRGNAME,result[i][j])
 			PATTERN=sorted(result[i][j].keys())
 			for k in PATTERN:
                             if k not in total.keys():
@@ -313,6 +309,7 @@ def display_results_print(list,date,time,option):
     """ get a list and display it while calculing stats"""
     print date+" "+time+" ",
     pattern=sorted(list.keys())
+    # total['GET'][0]=total ... GET[1]=count
     if option['format']=='csv':
         #print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
         pattern=['GET','PUT','DELETE','HEAD']
@@ -331,7 +328,13 @@ def display_results_print(list,date,time,option):
         if option['format']=='csv':
             print "{0:6s}".format(count),
         else:
-            print k+"|"+count,
+            if option['operation'] == 'elapsed':
+                avg=list[k][0]/list[k][1]
+                display='{2}:{0}|{1}|\t'.format(avg,count,k)
+            else:
+                display='{0}|{1}\t'.format(count,k)
+            #print k+"|"+display,
+            print display,
         if k in list:
             del list[k]
     print
@@ -420,8 +423,12 @@ def main(option):
 		count+=1
 		if count%100 == 0: 
 			#print '\r>> You have finished %d%%' % i,
-			print '\rLine browsed %d' %count,
+			#print '\rLine browsed %d' %count,
+                        msg='\rLine browsed '+str(count) 
+                        sys.stderr.write(msg)
 		Q=Log.payload.split()[0]
+                if Q == 'DELETE': 
+                    Q='DEL'
 		Message.debug(PRGNAME,"Op is : "+Q)
 		result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
         # to treat where no data
