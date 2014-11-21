@@ -7,6 +7,7 @@
 		3   review the ugly print statement
 		DONE   replace old debug style with Message class 
 		5   Improve message class to set hierachie in debug level
+		6	Add a picle option (need struct passed as json) to save/load data
 '''
 
 
@@ -138,8 +139,8 @@ class Message:
 				print("level_value",Message.level_value)
 		test=classmethod(test)
 
-msg=Message()
-msg.setlevel('debug')
+#msg=Message()
+#msg.setlevel('debug')
 
 class Logfile:
 	def __init__(self,logfile,kind="apache"):
@@ -235,7 +236,7 @@ def process_elapsed_bydate(result,date,time,operation,elapsed):
 		total=0 
 		count=0
 		total=substruct[time][operation][0]
-		count=substruct[time][operation][1]
+		#count=substruct[time][operation][1]
 		result[date][time][operation][0]=total+elapsed
 		result[date][time][operation][1]+=1
 	else:
@@ -246,100 +247,105 @@ def process_elapsed_bydate(result,date,time,operation,elapsed):
 
 # Get a list of data sorted /sec and display according time value /day /sec /minute ..  
 def display_results(result,option={}):
-        prevday=day=None
-        prevhour=hour=None
-        prevmin=minute=None
-        prevsec=second=None
-        # total['GET'][0]=total ... GET[1]=count
-        total={}
-        output={}
-        #for i in result.keys():
-        #    for j in result[i].keys():
-        #        print i,j,result[i][j]
-        #return()
-        if 'unit' in option:
-            unit=option['unit']
-        else:
-            unit='second'
-        #i=date, j=hms, k=get/put/del... 0=# 1=count
-        if option['format']=='csv':
-            print "{0:12s}{1:10s}{2:7s}{3:7s}{4:7s}{5:7s}".format('day','time','GET','PUT','DELETE','HEAD')
+	prevday=day=None
+	prevhour=hour=None
+	prevmin=minute=None
+	prevsec=second=None
+	# total['GET'][0]=total ... GET[1]=count
+	total={}
+	output={}
+	#for i in result.keys():
+	#    for j in result[i].keys():
+	#	print i,j,result[i][j]
+	#return()
+	if 'unit' in option:
+	    unit=option['unit']
+	else:
+	    unit='second'
+	#i=date, j=hms, k=get/put/del... 0=# 1=count
+	if option['format']=='csv'and option['operation'] != 'elapsed' :
+		print "#{0:12s}{1:8s}{2:7s}{3:7s}{4:7s}{5:7s}".format('day','time','GET','PUT','DELETE','HEAD')
+	if option['format']=='csv'and option['operation'] == 'elapsed' :
+		print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
 	for i in sorted(result.keys()):
-                if prevday==None: prevday=i
-                day=i
+		if prevday==None: 
+			prevday=i
+			day=i
 		for j in sorted(result[i].keys()):
-                        h,m,s=j.split(':')
-                        if prevhour==None: prevhour=h
-                        if prevmin==None: prevmin=m
-                        if prevsec==None: prevsec=-1
+			h,m,s=j.split(':')
+			if prevhour==None: prevhour=h
+			if prevmin==None: prevmin=m
+			if prevsec==None: prevsec=-1
+			
+                        Message.debug(PRGNAME+":display_results",str(h)+","+str(m)+","+str(s)+","+str(prevsec))
+			if unit == 'second' and prevsec != s:
+			    time=h+":"+m+":"+str(s) 
+			    total=display_results_print(total,i,time,option)
+			    prevsec=s
+			if unit == 'minute' and prevmin != m:
+			    time=h+":"+m+":00" 
+			    total=display_results_print(total,i,time,option)
+			    prevmin=m
+			if unit == 'hour' and prevhour != h:
+			    time=prevhour+":"+m+":00" 
+			    total=display_results_print(total,i,time,option)
+			    prevhour=h
+			if unit == 'day' and prevday != day:
+			    total=display_results_print(total,prevday,time,option)
+			    prevday=d
 
-			#Message.debug(PRGNAME,result[i][j])
+			Message.debug(PRGNAME+":display_results",result[i][j])
 			PATTERN=sorted(result[i][j].keys())
 			for k in PATTERN:
-                            if k not in total.keys():
-                                #print k,total,result[i][j][k][0]
-                                total[k]=[result[i][j][k][0],0]
-                                total[k][1]=result[i][j][k][1]
-                            else:
-		                total[k][0]=result[i][j][k][0]+total[k][0]
-	                        total[k][1]=result[i][j][k][1]+total[k][1]
-	                    #print k+"|"+str(count)+"|"+str(avg)+"|", 
-	                    #print k+"|"+str(count),
-                        Message.debug(PRGNAME,str(s)+","+str(prevsec))
-                        if unit == 'second' and prevsec != s:
-                            time=h+":"+m+":"+str(s) 
-                            total=display_results_print(total,i,time,option)
-                            prevsec=s
-                        if unit == 'minute' and prevmin != m:
-                            time=h+":"+prevmin+":00" 
-                            total=display_results_print(total,i,time,option)
-                            prevmin=m
-                        if unit == 'hour' and prevhour != h:
-                            time=prevhour+":"+m+":00" 
-                            total=display_results_print(total,i,time,option)
-                            prevhour=h
-                        if unit == 'day' and prevday != day:
-                            total=display_results_print(total,prevday,time,option)
-                            prevday=d
-        if unit != 'second':
-            display_results_print(total,i,j,option)
+			    if k not in total.keys():
+				#print k,total,result[i][j][k][0]
+				total[k]=[result[i][j][k][0],0]
+				total[k][1]=result[i][j][k][1]
+			    else:
+				total[k][0]=result[i][j][k][0]+total[k][0]
+				total[k][1]=result[i][j][k][1]+total[k][1]
+			    #print k+"|"+str(count)+"|"+str(avg)+"|", 
+			    #print k+"|"+str(count),
+	if unit != 'second':
+	    display_results_print(total,i,j,option)
 
 
 def display_results_print(list,date,time,option):
-    """ get a list and display it while calculing stats"""
-    print date+" "+time+" ",
-    pattern=sorted(list.keys())
-    # total['GET'][0]=total ... GET[1]=count
-    if option['format']=='csv':
-        #print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
-        pattern=['GET','PUT','DELETE','HEAD']
-    else:
-        pattern=sorted(list.keys())
-    for k in pattern:
-        if k not in list:
-            count="0"
-            avg="0"
-        else:
-            count=str(list[k][1])
-            if not list[k][1] == 0:
-                avg=list[k][0]/list[k][1]
-            else:
-                avg=0
-        if option['format']=='csv':
-            print "{0:6s}".format(count),
-        else:
-            if option['operation'] == 'elapsed':
-                avg=list[k][0]/list[k][1]
-                display='{2}:{0}|{1}|\t'.format(avg,count,k)
-            else:
-                display='{0}|{1}\t'.format(count,k)
-            #print k+"|"+display,
-            print display,
-        if k in list:
-            del list[k]
-    print
-    return(list)                        
-                            
+	""" get a list and display it while calculing stats"""
+	print date+" "+time+" ",
+	# total['GET'][0]=total ... GET[1]=count
+	# csv need to have 0 value when entry is not found
+	if option['format']=='csv':
+	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
+		pattern=['GET','PUT','DEL','HEAD']
+	else:
+		pattern=sorted(list.keys())
+	for k in pattern:
+		if k not in list:
+			count="0"
+			avg="0"
+		else:
+			count=str(list[k][1])
+			if not list[k][1] == 0:
+				avg=list[k][0]/list[k][1]
+			else:
+				avg=0
+		if option['format']=='csv'and option['operation'] == 'elapsed':
+			print "{0:10s}{1:10s}".format(count,str(avg)),
+		elif option['format']=='csv':
+			print "{0:10s}".format(count),
+		else:
+			if option['operation'] == 'elapsed':
+				display='{2}:{0}|{1}|\t'.format(avg,count,k)
+			else:
+				display='{0}|{1}\t'.format(count,k)
+				#print k+"|"+display,
+			print display,
+		if k in list:
+			del list[k]
+	print
+	return(list)
+
 
 def calculate_elasped(this,total,date,hour):
 	print date+" "+hour,
@@ -390,7 +396,7 @@ else:
 	zzzz='minute'
 
 #Message.setlevel('info')
-#Message.getlevel(1)
+Message.getlevel()
 
 PATTERN=('PUT','GET','DELETE','HEAD')
 displaydate=""
@@ -407,7 +413,7 @@ def main(option):
 			""" no more lines in the file """ 
 			Message.debug(PRGNAME,"EOF for file "+file)
 			if counted != 0:
-                                print
+				print
 				display_results(result,option)
 				#this=displaylinestat(this,option,displaydate,prevhms)
 			else:
@@ -424,14 +430,14 @@ def main(option):
 		if count%100 == 0: 
 			#print '\r>> You have finished %d%%' % i,
 			#print '\rLine browsed %d' %count,
-                        msg='\rLine browsed '+str(count) 
-                        sys.stderr.write(msg)
+			msg='\rLine browsed '+str(count) 
+			sys.stderr.write(msg)
 		Q=Log.payload.split()[0]
-                if Q == 'DELETE': 
-                    Q='DEL'
+		if Q == 'DELETE': 
+		    Q='DEL'
 		Message.debug(PRGNAME,"Op is : "+Q)
 		result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
-        # to treat where no data
+	# to treat where no data
 	#display_results(result,option)
 	exit(0)
 
