@@ -68,12 +68,18 @@ def parseargs(argv):
 						#print "using File "+file,
 				elif opt in "-H":
 						option['day']=arg 
+				elif opt in "-k":
+						option['kind']=arg 
 				elif opt in "-u":
 						option['unit']=arg 
 				elif opt in "-x":
 						option['format']='csv'
 				elif opt in "-o":
 						option['operation']=arg
+                                elif opt in "-p":
+                                                if 'pickelin' not in option:
+                                                    option['picklein']=[]
+                                                option['picklein'].append(arg)
 
 class Message:
 		"""
@@ -167,7 +173,7 @@ class Logfile:
 		print self.line,
 		return(self.line)
 
-
+        # prepare data to be analyzed
 	def prepare(self):
 		if self.kind=="apache":
 			self.fulldate=self.line.split("[")[1].split("]")[0]
@@ -177,7 +183,19 @@ class Logfile:
 			self.ms=None
 			self.elapsed=self.line.split('*')[1]
 			#self.all={'fulldate':fulldate}
-		else:
+		elif self.kind=="sproxyd":
+                        if self.line.split()[7].split('"')[1] != 'end' :
+                            print 'ignore not end lines'
+                            print self.line
+                            raw_input()
+                            return None
+			self.fulldate=self.line.split("[")[1].split("]")[0]
+			self.payload=self.line.split('"')[1]
+			self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
+			self.hms=self.hour+":"+self.minute+":"+self.second
+			self.ms=None
+			self.elapsed=self.line.split('*')[1]
+			#self.all={'fulldate':fulldate}
 			raise valueError
 
 
@@ -283,7 +301,8 @@ def display_results(result,option={}):
 			    total=display_results_print(total,i,time,option)
 			    prevsec=s
 			if unit == 'minute' and prevmin != m:
-			    time=h+":"+m+":00" 
+			    #time=h+":"+m+":00" 
+                            time=h+":"+m+":"+s
 			    total=display_results_print(total,i,time,option)
 			    prevmin=m
 			if unit == 'hour' and prevhour != h:
@@ -365,7 +384,10 @@ file=""
 option['file']=file
 option['count']=-1
 option['format']="list"
-kind="apache"
+if kind in option:
+    kind=option['kind'] 
+else:
+    kind="apache"
 
 
 
@@ -419,6 +441,8 @@ def main(option):
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
+                if l == None:
+                    break
 		Log.prepare()
 		#	Ignore line not in option['day']
 		if 'day' in option:
