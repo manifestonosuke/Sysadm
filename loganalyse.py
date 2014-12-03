@@ -10,7 +10,7 @@
 		6	Add a picle option (need struct passed as json) to save/load data
 '''
 
-
+from datetime import datetime
 import os 
 import sys
 import getopt
@@ -26,17 +26,26 @@ def usage():
 		-A	  Analyze all the file
 		-c	  Analyze only this count of files
 		-d	  Debug
-		-f	  Use file 
+		-f	  Use file
+		-o option  Use specific option (see below) 
+		-k	  specify log format (see below)
 		-u	  Unit to sort data (hour/minute ...)
 		-x	  Use csv format
 
 		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
 		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
+
+		supported option :
+		elapsed : to display elapsed time with the default count
+
+		supported log format :
+		apache
+		sproxyd
 		'''
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:o:u:x", ["help", "url="])
+				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:u:x", ["help", "url="])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -67,7 +76,7 @@ def parseargs(argv):
 						option['file']=arg
 						#print "using File "+file,
 				elif opt in "-H":
-						option['day']=arg 
+						option['hour']=arg 
 				elif opt in "-k":
 						option['kind']=arg 
 				elif opt in "-u":
@@ -174,6 +183,7 @@ class Logfile:
 		return(self.line)
 
         # prepare data to be analyzed
+	# fulldate format as apache : 03/Dec/2014:13:46:38
 	def prepare(self):
 		if self.kind=="apache":
 			self.fulldate=self.line.split("[")[1].split("]")[0]
@@ -182,20 +192,32 @@ class Logfile:
 			self.hms=self.hour+":"+self.minute+":"+self.second
 			self.ms=None
 			self.elapsed=self.line.split('*')[1]
+			self.operation=self.payload.split()[0]
 			#self.all={'fulldate':fulldate}
+			return True
 		elif self.kind=="sproxyd":
+			dict={}
+			Message.debug(PRGNAME,self.line)
                         if self.line.split()[7].split('"')[1] != 'end' :
-                            print 'ignore not end lines'
-                            print self.line
-                            raw_input()
                             return None
-			self.fulldate=self.line.split("[")[1].split("]")[0]
-			self.payload=self.line.split('"')[1]
-			self.day,self.hour,self.minute,self.second=self.fulldate.split()[0].split(':')
+			self.year=str(datetime.now().year)
+			self.month=self.line.split()[0]
+			self.day=str(self.line.split()[1])+'/'+self.month+'/'+self.year
+			self.hms=self.line.split()[2]
+			self.fulldate=str(self.day)+'/'+self.month+'/'+str(self.year)+':'+self.hms
+			self.payload=self.line.split()[8:]
+			self.hour,self.minute,self.second=self.hms.split(':')
 			self.hms=self.hour+":"+self.minute+":"+self.second
 			self.ms=None
-			self.elapsed=self.line.split('*')[1]
+			for k in self.payload:
+				dict[k.split('=')[0]]=k.split('"')[1:]		
+			self.elapsed=dict['elapsed'][0][:-2]
+			self.operation=dict['method'][0]
+			return True
+			#print self.elapsed,self.hms,self.fulldate
+                        #raw_input()
 			#self.all={'fulldate':fulldate}
+		else:
 			raise valueError
 
 
@@ -384,10 +406,6 @@ file=""
 option['file']=file
 option['count']=-1
 option['format']="list"
-if kind in option:
-    kind=option['kind'] 
-else:
-    kind="apache"
 
 
 
@@ -411,6 +429,10 @@ if 'csv' in option:
 
 #if __name__ != '__main__':
 #	exit()
+if 'kind' in option:
+    kind=option['kind'] 
+else:
+    kind="apache"
 
 if 'unit' in option:
 	zzzz=option['unit']
@@ -441,25 +463,30 @@ def main(option):
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
-                if l == None:
-                    break
-		Log.prepare()
+		#Log.prepare()
+                if Log.prepare() == None :
+                    continue
 		#	Ignore line not in option['day']
 		if 'day' in option:
 			if Log.day != option['day']:
 				continue
-		else:
-			counted+=1
+			else:
+				counted+=1
+		if 'hour' in option:
+			if Log.hour != option['hour']:
+				continue
+			else:
+				counted+=1
+			Message.debug(PRGNAME,'counted '+str(counted))
 		count+=1
 		if count%100 == 0: 
-			#print '\r>> You have finished %d%%' % i,
-			#print '\rLine browsed %d' %count,
 			msg='\rLine browsed '+str(count) 
 			sys.stderr.write(msg)
-		Q=Log.payload.split()[0]
+		#Q=Log.payload.split()[0]
+		Q=Log.operation
 		if Q == 'DELETE': 
 		    Q='DEL'
-		Message.debug(PRGNAME,"Op is : "+Q)
+		Message.debug(PRGNAME,"Op is : "+Q+str(Log.elapsed))
 		result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
 	# to treat where no data
 	#display_results(result,option)
