@@ -141,7 +141,9 @@ class Message:
 		run=classmethod(run)
 
 		def error(cls,p,m):
-				print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+				#print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+				msg=format("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+				sys.stderr.write(msg)
 		error=classmethod(error)
 
 		def fatal(cls,p,m,extra=99):
@@ -198,7 +200,12 @@ class Logfile:
 		elif self.kind=="sproxyd":
 			dict={}
 			Message.debug(PRGNAME,self.line)
-                        if self.line.split()[7].split('"')[1] != 'end' :
+                        #if self.line.split()[7].split('"')[1] != 'end' :
+			try:
+				status=self.line.split()[7].split('"')[1]
+			except IndexError:
+				return 'LINEERROR'
+			if status != 'end':
                             return None
 			self.year=str(datetime.now().year)
 			self.month=self.line.split()[0]
@@ -464,8 +471,13 @@ def main(option):
 				Message.info(PRGNAME,"no line selected")
 			break
 		#Log.prepare()
-                if Log.prepare() == None :
+		linestatus=Log.prepare()
+                if linestatus == None :
                     continue
+		elif linestatus == 'LINEERROR':
+		    Log.printline() 
+		    Message.error(PRGNAME,"Ignoring error reading line "+str(count)) 	
+		    continue
 		#	Ignore line not in option['day']
 		if 'day' in option:
 			if Log.day != option['day']:
