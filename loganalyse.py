@@ -32,7 +32,7 @@ def usage():
 		-k	  specify log format (see below)
 		-u	  Unit to sort data (hour/minute ...)
 		-x	  Use csv format
-                -T        TAG to search by default PUT/GET/DELETE/HEAD (still on dev)
+                -T        TAG to search by default REST 
 
 		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
 		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
@@ -43,6 +43,8 @@ def usage():
 		supported log format :
 		apache
 		sproxyd
+
+                Note : REST tag is used as  PUT/GET/DELETE/HEAD request 
 		'''
 
 def parseargs(argv):
@@ -168,7 +170,7 @@ class Logfile:
 		self.logfile=logfile
 		self.kind=kind
                 self.result={}
-                self.tag=('PUT','GET','DELETE','HEAD')
+                self.settag('REST')
 		if logfile == "":
 			print "ERROR : no file provided"
 			exit(2)
@@ -192,7 +194,21 @@ class Logfile:
 
         def settag(self,arg):
             self.tag=arg
+            if self.tag == 'REST':
+                self.realtag=('PUT','GET','DELETE','HEAD')
+            else:
+                self.realtag=self.tag
             return
+
+        def getop(self):
+            if self.tag == 'REST':
+                Q=self.operation
+                if Q == 'DELETE':
+                    Q='DEL'
+            if self.tag == 'http_code':
+                Q=self.http_code
+            return(Q)
+
 
         # prepare data to be analyzed
 	# fulldate format as apache : 03/Dec/2014:13:46:38
@@ -308,7 +324,7 @@ class Logfile:
                     Message.debug(PRGNAME+":display_results",str(h)+","+str(m)+","+str(s)+","+str(prevsec))
                     if self.unit == 'second' and prevsec != s:
                         #time=h+":"+m+":"+str(s) 
-                        time=prevhour+":"+prevmin+":"+str(prevsec)
+                        time=h+":"+m+":"+str(prevsec)
                         total=display_results_print(total,i,time,option)
                         prevsec=s
                     if self.unit == 'minute' and prevmin != m:
@@ -325,8 +341,8 @@ class Logfile:
                         prevday=d
 
                     Message.debug(PRGNAME+":display_results",self.result[i][j])
-                    self.tag=sorted(self.result[i][j].keys())
-                    for k in self.tag:
+                    self.realtag=sorted(self.result[i][j].keys())
+                    for k in self.realtag:
                         if k not in total.keys():
                             #print total
                             #print k,total,self.result[i][j][k][0]
@@ -467,9 +483,10 @@ def main(option):
 		if count%100 == 0: 
 			msg='\rLine browsed '+str(count) 
 			sys.stderr.write(msg)
-		Q=Log.operation
-		if Q == 'DELETE': 
-		    Q='DEL'
+		#Q=Log.operation
+		#if Q == 'DELETE': 
+		#    Q='DEL'
+                Q=Log.getop()
 		Message.debug(PRGNAME,"Op is : "+Q+str(Log.elapsed))
 		#result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
 		Log.aggragate_result(Q)
