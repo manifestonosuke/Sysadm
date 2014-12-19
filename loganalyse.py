@@ -171,6 +171,7 @@ class Logfile:
 		self.kind=kind
                 self.result={}
                 self.settag('REST')
+                self.banner=[]
 		if logfile == "":
 			print "ERROR : no file provided"
 			exit(2)
@@ -271,7 +272,9 @@ class Logfile:
         def aggragate_result(self,operation):
             #result,date,time,operation,elapsed
             #result,Log.day,Log.hms,Q,int(Log.elapsed))
-            pass
+            if operation not in self.banner:
+                self.banner.append(operation)
+                Message.debug(PRGNAME,"banner "+str(self.banner))
 	    substruct={}
 	    if not self.day in self.result.keys():
 		substruct[self.hms]={}
@@ -306,10 +309,28 @@ class Logfile:
             total={}
             output={}
             #i=date, j=hms, k=get/put/del... 0=# 1=count
+            formatstring=[]
+            for el in self.banner:
+                formatstring.append(el)
             if option['format']=='csv'and option['operation'] != 'elapsed' :
-                print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
+                formatstring=[]
+                for el in self.banner:
+                    formatstring.append(el)
+                #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
+                print "#{0:11s}{1:9s}".format('day','time'),
+                for i in formatstring:
+                    print i.ljust(10),
+                print
             if option['format']=='csv'and option['operation'] == 'elapsed' :
-                print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
+                #print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
+                formatstring=[]
+                for el in self.banner:
+                    formatstring.append(el)
+                    formatstring.append("avg")
+                print "#{0:11s}{1:9s}".format('day','time'),
+                for i in formatstring:
+                    print i.ljust(9),
+                print
             for i in sorted(self.result.keys()):
                 if prevday==None: 
                     prevday=i
@@ -323,13 +344,13 @@ class Logfile:
                     #print self.unit,h,m,s,prevhour,prevmin,prevsec
                     Message.debug(PRGNAME+":display_results",str(h)+","+str(m)+","+str(s)+","+str(prevsec))
                     if self.unit == 'second' and prevsec != s:
-                        #time=h+":"+m+":"+str(s) 
-                        time=h+":"+m+":"+str(prevsec)
+                        time=h+":"+m+":"+str(s) 
                         total=display_results_print(total,i,time,option)
                         prevsec=s
                     if self.unit == 'minute' and prevmin != m:
-                        time=prevhour+":"+prevmin+":00" 
+                        #time=prevhour+":"+prevmin+":00" 
                         #time=h+":"+prevmin+":"+s
+                        time=h+":"+m+":"+str(s) 
                         total=display_results_print(total,i,time,option)
                         prevmin=m
                     if self.unit == 'hour' and prevhour != h:
@@ -342,6 +363,7 @@ class Logfile:
 
                     Message.debug(PRGNAME+":display_results",self.result[i][j])
                     self.realtag=sorted(self.result[i][j].keys())
+                    #print self.realtag
                     for k in self.realtag:
                         if k not in total.keys():
                             #print total
@@ -351,9 +373,11 @@ class Logfile:
                         else:
                             #print self.result
                             #print total
-                            total[k][0]=self.result[i][j][k][0]+int(total[k][0])
+                            total[k][0]=int(self.result[i][j][k][0])+int(total[k][0])
                             total[k][1]=self.result[i][j][k][1]+total[k][1]
-                            #print k+"|"+str(count)+"|"+str(avg)+"|", 
+                            #print k+"|"+str(count)+"|"+str(avg)+"|",
+                        if k not in self.banner:
+                            self.banner.append(k)
 		    #print k+"|"+str(count),
 	    if self.unit != 'second':
 	        display_results_print(total,i,j,option)
@@ -364,11 +388,16 @@ def display_results_print(list,date,time,option):
 	print date+" "+time+" ",
 	# total['GET'][0]=total ... GET[1]=count
 	# csv need to have 0 value when entry is not found
-	if option['format']=='dcsv':
+	if option['tag']=='REST':
 	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
 		pattern=sorted(list.keys())
+	#if option['format']=='csv'and option['operation'] == 'elapsed':
+	#	print "{0:10s}{1:10s}".format(count,str(avg)),
+	#elif option['format']=='csv':
+	#	print "{0:8s}".format(count),
+            
 	for k in pattern:
 		if k not in list:
 			count="0"
@@ -382,7 +411,7 @@ def display_results_print(list,date,time,option):
 		if option['format']=='csv'and option['operation'] == 'elapsed':
 			print "{0:10s}{1:10s}".format(count,str(avg)),
 		elif option['format']=='csv':
-			print "{0:8s}".format(count),
+			print "{0:10s}".format(count),
 		else:
 			if option['operation'] == 'elapsed':
 				display='{2}:{0}|{1}|\t'.format(avg,count,k)
@@ -403,6 +432,7 @@ file=""
 option['file']=file
 option['count']=-1
 option['format']="list"
+option['tag']='REST'
 
 
 
