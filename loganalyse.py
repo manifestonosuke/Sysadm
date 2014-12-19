@@ -12,6 +12,7 @@
 '''
 
 from datetime import datetime
+import gzip
 import os 
 import sys
 import getopt
@@ -173,7 +174,11 @@ class Logfile:
 			print "ERROR : no file provided"
 			exit(2)
 		try:
-			self.fd=open(logfile)
+                        if self.logfile.split('.')[-1] == 'gz' :
+                            Message.info(PRGNAME,"Using compressed file")
+			    self.fd=gzip.open(self.logfile)
+                        else:
+			    self.fd=open(self.logfile)
 		except:
 			print "ERROR : could not open file "+logfile
 			raise IOError
