@@ -2,13 +2,13 @@
 
 '''
 	TODO 
-		DONE   setup the sample metric like second minute hour day ...
-		DONE   select date to display (like -D 23/Oct/2014)
-		3   review the ugly print statement
-		DONE   replace old debug style with Message class 
-		5   Improve message class to set hierachie in debug level
-		6	Add a picle option (need struct passed as json) to save/load data
-                7   finalize classification of the Log related code
+		DONE    setup the sample metric like second minute hour day ...
+		DONE    select date to display (like -D 23/Oct/2014)
+		3       review the ugly print statement
+		DONE    replace old debug style with Message class 
+		5       Improve message class to set hierachie in debug level
+		DONE    Add a picle option (need struct passed as json) to save/load data
+                DONE    finalize classification of the Log related code
 '''
 
 from datetime import datetime
@@ -25,35 +25,39 @@ def usage():
 		print PRGNAME,"usage"
 		print '''
 		loganalyze -f FILE 
-		-A	  Analyze all the file
-		-c	  Analyze only this count of files
-		-d	  Debug
-		-f	  Use file filname, with following extention will do :
-                          .gz  : will read it as gzipped file (without extracting)
-                          .pickle : will read the file as a python pickle (see option -p)
-		-o option  Use specific option (see below) 
-                -p        Save the stat in pickle format for later use.
-		-k	  specify log format (see below)
-		-u	  Unit to sort data (hour/minute ...)
-		-x	  Use csv format
-                -T        TAG to search by default REST 
+		-c          Analyze only this count of files
+		-d          Debug
+		-f file     Use file filname, with following extention will do :
+                            .gz  : will read it as gzipped file (without extracting)
+                            .pickle : will read the file as a python pickle (see option -p)
+		-o option   Use specific option (see below) 
+                -p          Save the stat in pickle format for later use. output pickle is original filename.pickle
+		-k format   specify log format (see below)
+		-u unit     Unit to sort data (hour/minute ...)
+		-x	    Use csv format
+                -T          TAG to search by default REST 
 
-		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
-		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
+		-D	    Specify a day to display (format as original log file ie apache 01/Jan/2011)
+		-H	    Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
 
-		supported option :
+		supported option for -o :
 		elapsed : to display elapsed time with the default count
 
 		supported log format :
 		apache
+                dovecot (similar to apache with elapsed between "*" )
 		sproxyd
+                
+                TAG is used for entries to check in the log file 
+                    REST tag is used as  PUT/GET/DELETE/HEAD request 
+                    http_code is used to search http_code in apache like files 
 
-                Note : REST tag is used as  PUT/GET/DELETE/HEAD request 
+                pickle option will create a file 
 		'''
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:p:T:u:x", ["help", "url="])
+				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:pT:u:x", ["help", "url="])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -90,7 +94,7 @@ def parseargs(argv):
 		    elif opt in "-o":
 		        option['operation']=arg
                     elif opt in "-p":
-                        option['pickle']=arg
+                        option['pickle']='pickle'
                     elif opt in "-T":
 		        option['tag']=arg
 
@@ -103,6 +107,7 @@ class Message:
 		"""
 		level=""
 		level_value=[ 'info','debug','verbose','run','error','fatal','silent','warning','all']
+                level_value_d={'info':10,'debug':20,'verbose':30,'run':40,'error':50,'fatal':60,'silent':0,'warning':60,'all':100}
 		def __init__(self):
 				Message.level=""
 
@@ -114,41 +119,45 @@ class Message:
 		setlevel=classmethod(setlevel)
 
 		def getlevel(cls,display=0):
-				if len(Message.level) == 0:
-						return('unset')
-				if display == 1:
-					print "Message level : "+str(Message.level) 
-				return(Message.level)
+		    if len(Message.level) == 0:
+		        return('unset')
+	            if display == 1:
+			print "Message level : "+str(Message.level) 
+		    return(Message.level)
 		getlevel=classmethod(getlevel)
 
-		def info(cls,p,m):
-				print("%-10s : %-10s : %-30s" % ("INFO",p,m))
+		def info(cls,p,m,option=None):
+                    if option == "stderr":
+                        string="%-10s : %-10s : %-30s" % ("INFO",p,m)
+                        sys.stderr.write(string)
+                    else:
+		        print("%-10s : %-10s : %-30s" % ("INFO",p,m))
 		info=classmethod(info)
 
 		def warning(cls,p,m):
-				print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
+		    print("%-10s : %-10s : %-30s" % ("WARNING",p,m))
 		warning=classmethod(warning)
 
 		def debug(cls,p,m):
-				if Message.level == 'debug':
-						print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
+		    if Message.level == 'debug':
+		        print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
 		debug=classmethod(debug)
 
 		def verbose(cls,p,m):
-				if Message.level == 'verbose':
-						print("%-10s : %-10s : %-30s" % ("VERBOSE",p,m))
+		    if Message.level == 'verbose':
+		        print("%-10s : %-10s : %-30s" % ("VERBOSE",p,m))
 		verbose=classmethod(verbose)
 
 		def run(cls,p,m):
-				if Message.level == 'run':
-						print("%-10s : %-10s : %-30s" % ("INFO",p,m))
+		    if Message.level == 'run':
+		        print("%-10s : %-10s : %-30s" % ("INFO",p,m))
 		run=classmethod(run)
 
 		def error(cls,p,m):
-				#print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
-				msg=format("%-10s : %-10s : %-30s" % ("ERROR",p,m))
-				sys.stderr.write(msg)
-                                print
+		    #print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+		    msg=format("%-10s : %-10s : %-30s" % ("ERROR",p,m))
+		    sys.stderr.write(msg)
+                    print
 		error=classmethod(error)
 
 		def fatal(cls,p,m,extra=99):
@@ -174,7 +183,7 @@ class Logfile:
                 for key in option.keys():
                     self.setoption(key,option[key])
 		self.logfile=self.getoption('file')
-		self.kind=self.getoption('kind')
+		self.kind=self.getoption('kind','apache')
                 self.settag('REST')
                 self.unit=self.getoption('unit') 
                 if self.logfile == "":
@@ -194,7 +203,7 @@ class Logfile:
 			raise IOError
                 
                 if self.logfile.split('.')[-1] == 'pickle' :
-                    self.pickler()
+                    self.readpickle()
       
 
         def setoption(self,param,value=None):
@@ -209,20 +218,24 @@ class Logfile:
             else:
                 return(self.logfile)
 
-        def getoption(self,param='enum'):
+        def getoption(self,param='enum',default=None):
             if param == 'enum':
                 for key in self.option:
                     print self.option[key]
                 return(True)
             if param not in self.option:
-                Message.error("Log.option","Invalid operation "+param)
-                raise TypeError
+                if default == None:
+                    Message.error("Log.option","Invalid operation "+param)
+                    raise TypeError
+                else:
+                    return(default)
             else:
                 return(self.option[param])
                 
 
-        def pickler(self):
+        def readpickle(self):
 	    self.result=pickle.load(self.fd)
+            self.banner=self.result.pop('banner')
             self.display_results()
             exit()
 
@@ -240,8 +253,11 @@ class Logfile:
                 Message.error(PRGNAME,"Can not open pickle file")
                 return(1)
             if op == "dump":
+                self.result['banner']=self.banner
                 pickle.dump(self.result,pickler)   
                 pickler.close()
+                return(True)
+            return(None)
 
 	def printline(self):
 	    print self.line,
@@ -370,6 +386,7 @@ class Logfile:
             formatstring=[]
             for el in self.banner:
                 formatstring.append(el)
+            ## ##print self.banner
             if option['format']=='csv'and option['operation'] != 'elapsed' :
                 formatstring=[]
                 for el in self.banner:
@@ -421,7 +438,6 @@ class Logfile:
 
                     Message.debug(PRGNAME+":display_results",self.result[i][j])
                     self.realtag=sorted(self.result[i][j].keys())
-                    #print self.realtag
                     for k in self.realtag:
                         if k not in total.keys():
                             #print total
@@ -451,11 +467,6 @@ def display_results_print(list,date,time,option):
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
 		pattern=sorted(list.keys())
-	#if option['format']=='csv'and option['operation'] == 'elapsed':
-	#	print "{0:10s}{1:10s}".format(count,str(avg)),
-	#elif option['format']=='csv':
-	#	print "{0:8s}".format(count),
-            
 	for k in pattern:
 		if k not in list:
 			count="0"
@@ -503,9 +514,6 @@ if 'csv' in option:
 else:
 	csvchar=" "
 
-if 'ALL' in option:
-	refday=""
-
 if 'csv' in option:
 	print 'date'+csvchar+'hour'+csvchar+'PUT'+csvchar+'GET'+csvchar+'DELETE'+csvchar+'HEAD'
 
@@ -537,10 +545,10 @@ def main(option):
 	result={}
 	counted=0 
 	count=0 
-        if 'unit' in option:
-            Log.unit(option['unit'])
-        else:
-	    Log.unit('minute')
+        #if 'unit' in option:
+        #    Log.unit(option['unit'])
+        #else:
+	#    Log.unit('minute')
         if 'tag' in option:
             Log.settag(option['tag'])
 	while True:
@@ -552,9 +560,12 @@ def main(option):
 			if counted != 0:
 				print
 				#display_results(Log.result,option)
-                                if 'pickle' in option:
-                                    Log.pickfile("dump",option['pickle'])
 				Log.display_results(option)
+                                if 'pickle' in option:
+                                    p=str(Log.logfile)+'.pickle'
+                                    Log.pickfile("dump",p)
+			            sys.stderr.write("\n")
+                                    Message.info(PRGNAME,"pickle file "+p+" created","stderr")
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
