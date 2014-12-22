@@ -16,9 +16,9 @@ import gzip
 import os 
 import sys
 import getopt
+import pickle
 
 PRGNAME=os.path.basename(sys.argv[0])
-
 
 def usage():
 		global PRGNAME
@@ -28,8 +28,11 @@ def usage():
 		-A	  Analyze all the file
 		-c	  Analyze only this count of files
 		-d	  Debug
-		-f	  Use file
+		-f	  Use file filname, with following extention will do :
+                          .gz  : will read it as gzipped file (without extracting)
+                          .pickle : will read the file as a python pickle (see option -p)
 		-o option  Use specific option (see below) 
+                -p        Save the stat in pickle format for later use.
 		-k	  specify log format (see below)
 		-u	  Unit to sort data (hour/minute ...)
 		-x	  Use csv format
@@ -50,52 +53,46 @@ def usage():
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:T:u:x", ["help", "url="])
+				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:p:T:u:x", ["help", "url="])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
-		#print "Parsing opt",opts,"arg",args
+		Message.setlevel('info')
 		global option
 		global DEBUG
 		for i,el in enumerate(opts):
-				if '-d' in el:
-						"remove -d arg from opts string and go debug"
-						opts.pop(i)
-						Message.setlevel('debug')
-						Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
-				else:
-						Message.setlevel('info')
+                    #print 'enum : '+str(i),el
+		    if '-d' in el:
+		        "remove -d arg from opts string and go debug"
+		        opts.pop(i)
+		        Message.setlevel('debug')
+		        Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
 		for opt, arg in opts:
-				if opt in ("-h", "--help"):
-						usage()
-						sys.exit()
-				elif opt == '-A':
-						option['ALL'] = 1
-				elif opt == '-c':
-						option['count'] = arg
-				elif opt == '-d':
-						DEBUG = 1
-				elif opt == "-D":
-						option['day']=arg 
-				elif opt in "-f":
-						option['file']=arg
-						#print "using File "+file,
-				elif opt in "-H":
-						option['hour']=arg 
-				elif opt in "-k":
-						option['kind']=arg 
-				elif opt in "-u":
-						option['unit']=arg 
-				elif opt in "-x":
-						option['format']='csv'
-				elif opt in "-o":
-						option['operation']=arg
-                                elif opt in "-p":
-                                                if 'pickelin' not in option:
-                                                    option['picklein']=[]
-                                                option['picklein'].append(arg)
-				elif opt in "-T":
-						option['tag']=arg
+		    if opt in ("-h", "--help"):
+			usage()
+			sys.exit()
+	            elif opt == '-A':
+		        option['ALL'] = 1
+                    elif opt == '-c':
+		        option['count'] = arg
+		    elif opt == "-D":
+		        option['day']=arg 
+		    elif opt == "-f":
+		        option['file']=arg 
+		    elif opt in "-H":
+		        option['hour']=arg 
+		    elif opt in "-k":
+		        option['kind']=arg 
+		    elif opt in "-u":
+		        option['unit']=arg 
+		    elif opt in "-x":
+		        option['format']='csv'
+		    elif opt in "-o":
+		        option['operation']=arg
+                    elif opt in "-p":
+                        option['pickle']=arg
+                    elif opt in "-T":
+		        option['tag']=arg
 
 class Message:
 		"""
@@ -105,7 +102,7 @@ class Message:
 				otherwise it will be silent
 		"""
 		level=""
-		level_value=[ 'info','debug','verbose','run','error','fatal','silent','warning']
+		level_value=[ 'info','debug','verbose','run','error','fatal','silent','warning','all']
 		def __init__(self):
 				Message.level=""
 
@@ -151,6 +148,7 @@ class Message:
 				#print("%-10s : %-10s : %-30s" % ("ERROR",p,m))
 				msg=format("%-10s : %-10s : %-30s" % ("ERROR",p,m))
 				sys.stderr.write(msg)
+                                print
 		error=classmethod(error)
 
 		def fatal(cls,p,m,extra=99):
@@ -167,32 +165,83 @@ class Message:
 #msg.setlevel('debug')
 
 class Logfile:
-	def __init__(self,logfile,kind="apache"):
-		self.logfile=logfile
-		self.kind=kind
+	#def __init__(self,logfile,kind="apache"):
+	def __init__(self,option):
+                self.option={}
                 self.result={}
-                self.settag('REST')
                 self.banner=[]
-		if logfile == "":
+                self.setoption('unit','minute')
+                for key in option.keys():
+                    self.setoption(key,option[key])
+		self.logfile=self.getoption('file')
+		self.kind=self.getoption('kind')
+                self.settag('REST')
+                self.unit=self.getoption('unit') 
+                if self.logfile == "":
 			print "ERROR : no file provided"
 			exit(2)
-		try:
-                        if self.logfile.split('.')[-1] == 'gz' :
-                            Message.info(PRGNAME,"Using compressed file")
-			    self.fd=gzip.open(self.logfile)
-                        else:
-			    self.fd=open(self.logfile)
-		except:
+                if self.logfile.split('.')[-1] == 'gz' :
+		    try:
+		        self.fd=gzip.open(self.logfile)
+		    except:
 			print "ERROR : could not open file "+logfile
 			raise IOError
+                else: 
+                    try:
+                        self.fd=open(self.logfile,'r')
+		    except:
+			print "ERROR : could not open file "+logfile
+			raise IOError
+                
+                if self.logfile.split('.')[-1] == 'pickle' :
+                    self.pickler()
+      
+
+        def setoption(self,param,value=None):
+            try:
+                self.option[param]=value
+            except:
+                Message.error('Log.getoption',"cant set option :"+param)
+
+        def name(self):
+            if not self.logfile:
+                return(False)
+            else:
+                return(self.logfile)
+
+        def getoption(self,param='enum'):
+            if param == 'enum':
+                for key in self.option:
+                    print self.option[key]
+                return(True)
+            if param not in self.option:
+                Message.error("Log.option","Invalid operation "+param)
+                raise TypeError
+            else:
+                return(self.option[param])
+                
+
+        def pickler(self):
+	    self.result=pickle.load(self.fd)
+            self.display_results()
+            exit()
 
 	def readone(self):
             l=self.fd.readline()
-            #Message.debug('readone',l)
             if not l:
                     return(0)
             self.line=l
 	    return(1)
+
+        def pickfile(self,op="dump",file="out.pickle"):
+            try:
+                pickler=open(file,'w')
+            except:
+                Message.error(PRGNAME,"Can not open pickle file")
+                return(1)
+            if op == "dump":
+                pickle.dump(self.result,pickler)   
+                pickler.close()
 
 	def printline(self):
 	    print self.line,
@@ -207,12 +256,15 @@ class Logfile:
             return
 
         def getop(self):
+            Q=None
             if self.tag == 'REST':
                 Q=self.operation
                 if Q == 'DELETE':
                     Q='DEL'
             if self.tag == 'http_code':
                 Q=self.http_code
+            if Q == None:
+                Message.error(PRGNAME,"Tag no valid :"+str(self.tag))
             return(Q)
 
 
@@ -306,6 +358,7 @@ class Logfile:
 	    #return(result)		
     
         def display_results(self,option={}):
+            option=self.option
 	    prevday=day=None
 	    prevhour=hour=None
 	    prevmin=minute=None
@@ -384,8 +437,8 @@ class Logfile:
                         if k not in self.banner:
                             self.banner.append(k)
 		    #print k+"|"+str(count),
-	    if self.unit != 'second':
-	        display_results_print(total,i,j,option)
+	    #if self.unit != 'second':
+	    #    display_results_print(total,i,j,option)
 
 
 def display_results_print(list,date,time,option):
@@ -467,15 +520,20 @@ else:
     kind="apache"
 
 
-#Message.setlevel('info')
 Message.getlevel()
 
 #tag=('PUT','GET','DELETE','HEAD')
 displaydate=""
 prevhms=-7
+
+
+
+
+
 def main(option):
 	Message.debug(PRGNAME,":"+option['operation']+":")
-	Log=Logfile(option['file'],kind)
+	#Log=Logfile(option['file'],option)
+	Log=Logfile(option)
 	result={}
 	counted=0 
 	count=0 
@@ -494,6 +552,8 @@ def main(option):
 			if counted != 0:
 				print
 				#display_results(Log.result,option)
+                                if 'pickle' in option:
+                                    Log.pickfile("dump",option['pickle'])
 				Log.display_results(option)
 			else:
 				Message.info(PRGNAME,"no line selected")
