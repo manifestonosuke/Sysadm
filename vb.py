@@ -403,12 +403,12 @@ class vbctl():
 		hdinfo={}
 		uuids=[]
 		#diskpattern="SATA Controller-ImageUUID"
-		#diskpattern="SATA-*ImageUUID"
-		diskpattern="SATA*Controller*"
+		diskpattern="SATA.*ImageUUID"
 		for i in dict.keys():
-			print(i)
-			if str(re.search(diskpattern,str(i))) != 'None':
-				uuids=dict[i]
+			j=str(i.strip('"'))
+			if str(re.search(diskpattern,j)) != 'None':
+				#uuids=dict[i]
+				uuids.append(dict[i][0])
 
 		if len(uuids) != 0 :		
 			#print("UUID : Size : Real size : Filename")
