@@ -403,18 +403,19 @@ class vbctl():
 		hdinfo={}
 		uuids=[]
 		#diskpattern="SATA Controller-ImageUUID"
-		diskpattern="SATA.*ImageUUID"
+		diskpatterns=["SATA.*ImageUUID","SCSI-ImageUUID"]
 		for i in dict.keys():
 			j=str(i.strip('"'))
-			if str(re.search(diskpattern,j)) != 'None':
-				#uuids=dict[i]
-				uuids.append(dict[i][0])
+			for diskpattern in diskpatterns:
+				if str(re.search(diskpattern,j)) != 'None':
+					#uuids=dict[i]
+					uuids.append(dict[i][0])
 
 		if len(uuids) != 0 :		
 			#print("UUID : Size : Real size : Filename")
 			for uuid in uuids:
 				#print(uuid)
-				cmd="vboxmanage showhdinfo "+uuid
+				cmd="VBoxManage showhdinfo "+uuid
 				output=execute(cmd).decode("utf-8")
 				for el in output.split("\n"):
 					el2=el.split(':')
@@ -427,7 +428,7 @@ class vbctl():
 				print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
 				print("File : ",hdinfo["Location"][0].split("/").pop())
 		else:
-			print("No disk found as SATA ImageUUID")
+			print("INFO : No disk found")
 	
 		#end(0)
 	def guest_pause(arg):
