@@ -9,6 +9,7 @@
 		5       Improve message class to set hierachie in debug level
 		DONE    Add a picle option (need struct passed as json) to save/load data
                 DONE    finalize classification of the Log related code
+                x       describe file format with 3 param (grep pattern, elapsed format, pattern to read)  and be able to parse various log files 
 '''
 
 from datetime import datetime
@@ -234,6 +235,7 @@ class Logfile:
                 
 
         def readpickle(self):
+            Message.info(PRGNAME,"Reading pickle file "+str(self.logfile),"stderr")
 	    self.result=pickle.load(self.fd)
             self.banner=self.result.pop('banner')
             self.display_results()
@@ -357,7 +359,6 @@ class Logfile:
 
 	    substruct=self.result[self.day]	
 	    if not self.hms in substruct:
-		#print date+":"+time+":"+operation
 		self.result[self.day][self.hms]={}
 		self.result[self.day][self.hms][operation]=[self.elapsed,1]
 		return()
@@ -383,29 +384,27 @@ class Logfile:
             total={}
             output={}
             #i=date, j=hms, k=get/put/del... 0=# 1=count
-            formatstring=[]
-            for el in self.banner:
-                formatstring.append(el)
-            ## ##print self.banner
-            if option['format']=='csv'and option['operation'] != 'elapsed' :
-                formatstring=[]
-                for el in self.banner:
-                    formatstring.append(el)
-                #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
-                print "#{0:11s}{1:9s}".format('day','time'),
-                for i in formatstring:
-                    print i.ljust(10),
-                print
+            self.banner.sort()
             if option['format']=='csv'and option['operation'] == 'elapsed' :
                 #print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
                 formatstring=[]
                 for el in self.banner:
                     formatstring.append(el)
                     formatstring.append("avg")
-                print "#{0:11s}{1:9s}".format('day','time'),
+                print "#{0}:{1:20s}".format('day','time'),
                 for i in formatstring:
                     print i.ljust(9),
                 print
+            else:
+                formatstring=[]
+                for el in self.banner:
+                    formatstring.append(el)
+                #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
+                print "#{0}:{1:16s}".format('day','time'),
+                for i in formatstring:
+                    print i.ljust(10),
+                print
+                
             for i in sorted(self.result.keys()):
                 if prevday==None: 
                     prevday=i
@@ -459,7 +458,7 @@ class Logfile:
 
 def display_results_print(list,date,time,option):
 	""" get a list and display it while calculing stats"""
-	print date+" "+time+" ",
+	print date+":"+time+" ",
 	# total['GET'][0]=total ... GET[1]=count
 	# csv need to have 0 value when entry is not found
 	if option['tag']=='REST':

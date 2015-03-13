@@ -79,6 +79,7 @@ def usage():
         -0 : Power OFF the vbox
         -v : full verbose mode (will list all vbox command runned)
 	-V : set vrde on on port range 3389-3399
+	-x : Start the vbox in graphic mode
 	"""
 	message=message+add
 	print(message)	
@@ -147,7 +148,7 @@ def parseargs(argv):
 			print(AA)
 			end()
 	try:
-		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:0:", ["help"])
+		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:x:0:", ["help"])
 	except getopt.GetoptError:
 		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
@@ -243,6 +244,9 @@ def parseargs(argv):
 				output=execute(cmd).decode('utf-8')
 				cmd="VBoxManage modifyvm "+arg+" --vrdeport "+PORT
 				output=execute(cmd).decode('utf-8')
+			end(0)
+		elif opt == '-x' :
+			rez=vbctl.guest_start(arg,"gui")
 			end(0)
 		elif opt == 0 :
 			vbctl.guest_poweroff(arg)
@@ -461,7 +465,7 @@ class vbctl():
 		output=execute(cmd)
 		logit.debug(THISFUNC,"Pausing proc exit")
 		end(0)
-	def guest_start(arg):
+	def guest_start(arg,option='headless'):
 		THISFUNC=PRGNAME+".guest_start"
 		logit.debug(THISFUNC,"Starting "+arg)
 		if vbctl.exist(arg) == 0 :
@@ -469,8 +473,9 @@ class vbctl():
 			sys.exit(1)
 		#cmd=("VBoxHeadless --startvm "+arg+" -vrde on &")
 		#cmd=("VBoxHeadless --startvm "+arg+" -vrde on")
-		cmd=("VBoxManage startvm "+arg+" --type headless")
+		cmd=("VBoxManage startvm "+arg+" --type "+option)
 		output=execute(cmd).decode("utf-8")
+#output=execute(cmd).decode("utf-8")
 		print(output)
 		logit.debug(THISFUNC,"Starting proc exit")
 		end(0)
