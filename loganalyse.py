@@ -37,13 +37,10 @@ def usage():
 		-u unit     Unit to sort data (hour/minute ...)
 		-x	    Use csv format
                 -T          TAG to search by default REST 
-
 		-D	    Specify a day to display (format as original log file ie apache 01/Jan/2011)
 		-H	    Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
-
 		supported option for -o :
 		elapsed : to display elapsed time with the default count
-
 		supported log format :
 		apache
                 dovecot (similar to apache with elapsed between "*" )
@@ -52,7 +49,6 @@ def usage():
                 TAG is used for entries to check in the log file 
                     REST tag is used as  PUT/GET/DELETE/HEAD request 
                     http_code is used to search http_code in apache like files 
-
                 pickle option will create a file 
 		'''
 
@@ -328,6 +324,44 @@ class Logfile:
 			self.operation=dict['method'][0]
 			self.http_code=dict['http_code'][0]
 			return True
+		elif self.kind=="restapi":
+			dict={}
+			Message.debug(PRGNAME,self.line)
+                        #if self.line.split()[7].split('"')[1] != 'end' :
+			
+			#step="REQ_END"
+			try:
+				status=self.line.split()[4].split('"')[1]
+				if status != 'generic': 
+					return None
+				status=self.line.split()[7].split('"')[1]
+					
+			except IndexError:
+				return 'LINEERROR'
+			if status != 'REQ_END':
+                            return None
+			self.year=str(datetime.now().year)
+			self.month=self.line.split()[0][4:6]
+			self.day=self.line.split()[0][6:8]
+			self.hms=self.line.split()[1].split('.')[0]
+			self.fulldate=str(self.day)+'/'+self.month+'/'+str(self.year)+':'+self.hms
+			self.payload=self.line.split()[4:]
+			self.hour,self.minute,self.second=self.hms.split(':')
+			self.hms=self.hour+":"+self.minute+":"+self.second
+			self.ms=None
+			#print self.payload
+			for k in self.payload:
+				dict[k.split('=')[0]]=k.split('"')[1:]	
+			self.elapsed=dict['elapsed'][0][:-2]
+			self.operation=dict['method'][0]
+			if "code" not in dict.keys():
+				print self.payload
+				self.http_code="666"
+			else:	
+				self.http_code=dict['code'][0]
+			return True
+
+
 			#print self.elapsed,self.hms,self.fulldate
                         #raw_input()
 			#self.all={'fulldate':fulldate}
@@ -583,7 +617,7 @@ def main(option):
                 if linestatus == None :
                     continue
 		elif linestatus == 'LINEERROR':
-		    Log.printline() 
+		    #Log.printline() 
 		    Message.error(PRGNAME,"Ignoring error reading line "+str(count)) 	
 		    continue
 		#	Ignore line not in option['day']
