@@ -376,35 +376,39 @@ class Logfile:
     
         def display_results(self,option={}):
             option=self.option
-	    prevday=day=None
-	    prevhour=hour=None
-	    prevmin=minute=None
+            prevday=day=None
+            prevhour=hour=None
+            prevmin=minute=None
             prevsec=second=None
             # total['GET'][0]=total ... GET[1]=count
             total={}
             output={}
             #i=date, j=hms, k=get/put/del... 0=# 1=count
-            self.banner.sort()
-            if option['format']=='csv'and option['operation'] == 'elapsed' :
+            #self.banner.sort()
+            #if option['format']=='csv'and option['operation'] == 'elapsed' :
                 #print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
-                formatstring=[]
-                for el in self.banner:
-                    formatstring.append(el)
-                    formatstring.append("avg")
-                print "#{0}:{1:20s}".format('day','time'),
-                for i in formatstring:
-                    print i.ljust(9),
-                print
-            else:
-                formatstring=[]
-                for el in self.banner:
-                    formatstring.append(el)
-                #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
-                print "#{0}:{1:16s}".format('day','time'),
-                for i in formatstring:
-                    print i.ljust(10),
-                print
-                
+            #    formatstring=[]
+            #    for el in self.banner:
+            #        formatstring.append(el)
+            #        formatstring.append("avg")
+            #    print "#{0}:{1:20s}".format('day','time'),
+            #    for i in formatstring:
+            #        print i.ljust(9),
+            #    print
+            #else:
+            #    formatstring=[]
+            #    for el in self.banner:
+            #        formatstring.append(el)
+            #    #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
+            #    #print "#{0}:{1:16s}".format('day','time'),
+            #    for i in formatstring:
+            #        print i.ljust(10),
+            #    print
+            pattern=sorted(self.banner)
+            #print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
+            print pattern 
+
+            #print self.result
             for i in sorted(self.result.keys()):
                 if prevday==None: 
                     prevday=i
@@ -419,22 +423,23 @@ class Logfile:
                     Message.debug(PRGNAME+":display_results",str(h)+","+str(m)+","+str(s)+","+str(prevsec))
                     if self.unit == 'second' and prevsec != s:
                         time=h+":"+m+":"+str(s) 
-                        total=display_results_print(total,i,time,option)
+                        total=self.display_results_print(total,i,time,option)
                         prevsec=s
                     if self.unit == 'minute' and prevmin != m:
                         #time=prevhour+":"+prevmin+":00" 
                         #time=h+":"+prevmin+":"+s
                         time=h+":"+m+":"+str(s) 
-                        total=display_results_print(total,i,time,option)
+                        total=self.display_results_print(total,i,time,option)
                         prevmin=m
                     if self.unit == 'hour' and prevhour != h:
                         time=prevhour+":"+m+":00" 
-                        total=display_results_print(total,i,time,option)
+                        total=self.display_results_print(total,i,time,option)
                         prevhour=h
                     if self.unit == 'day' and prevday != day:
-                        total=display_results_print(total,prevday,time,option)
+                        total=self.display_results_print(total,prevday,time,option)
                         prevday=d
 
+                    #print "TTT"+str(total)
                     Message.debug(PRGNAME+":display_results",self.result[i][j])
                     self.realtag=sorted(self.result[i][j].keys())
                     for k in self.realtag:
@@ -449,48 +454,53 @@ class Logfile:
                             total[k][0]=int(self.result[i][j][k][0])+int(total[k][0])
                             total[k][1]=self.result[i][j][k][1]+total[k][1]
                             #print k+"|"+str(count)+"|"+str(avg)+"|",
-                        if k not in self.banner:
-                            self.banner.append(k)
+                        #if k not in self.banner:
+                        #    self.banner.append(k)
 		    #print k+"|"+str(count),
 	    #if self.unit != 'second':
 	    #    display_results_print(total,i,j,option)
 
 
-def display_results_print(list,date,time,option):
-	""" get a list and display it while calculing stats"""
-	print date+":"+time+" ",
-	# total['GET'][0]=total ... GET[1]=count
-	# csv need to have 0 value when entry is not found
-	if option['tag']=='REST':
-	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
-		pattern=['GET','PUT','DEL','HEAD']
-	else:
-		pattern=sorted(list.keys())
-	for k in pattern:
-		if k not in list:
-			count="0"
-			avg="0"
-		else:
-			count=str(list[k][1])
-			if not list[k][1] == 0:
-				avg=int(list[k][0])/list[k][1]
-			else:
-				avg=0
-		if option['format']=='csv'and option['operation'] == 'elapsed':
-			print "{0:10s}{1:10s}".format(count,str(avg)),
-		elif option['format']=='csv':
-			print "{0:10s}".format(count),
-		else:
-			if option['operation'] == 'elapsed':
-				display='{2}:{0}|{1}|\t'.format(avg,count,k)
-			else:
-				display='{0}|{1}\t'.format(count,k)
-				#print k+"|"+display,
-			print display,
-		if k in list:
-			del list[k]
-	print
-	return(list)
+        def display_results_print(self,list,date,time,option):
+            """ get a list and display it while calculing stats"""
+            #list=self.total
+            #print list
+            print date+":"+time+" ",
+            # total['GET'][0]=total ... GET[1]=count
+            # csv need to have 0 value when entry is not found
+            #if option['tag']=='REST':
+                #print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
+            #    pattern=['GET','PUT','DEL','HEAD']
+            #else:
+            pattern=sorted(self.banner)
+            for k in pattern:
+                if k not in list:
+                    count="0"
+                    avg="0"
+                else:
+                    count=str(list[k][1])
+                    if not list[k][1] == 0:
+                        avg=int(list[k][0])/list[k][1]
+                    else:
+                        avg=0
+            
+                if option['format']=='csv':
+                    if option['operation'] == 'elapsed':
+                        print "{0:10s}{1:10s}".format(count,str(avg)),
+                    else:
+                        print "{0:10s}".format(count),
+                else:
+                    if option['operation'] == 'elapsed':
+                        display='{2}:{0}|{1}|\t'.format(avg,count,k)
+                    else:
+                        display='{0}|{1}\t'.format(count,k)
+                        #print k+"|"+display,
+                    print display,
+            if k in list:
+                del list[k]
+            print
+            list={}
+            return(list)
 
 
 #default option count rest command
