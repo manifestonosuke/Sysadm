@@ -182,7 +182,8 @@ class Logfile:
 		self.logfile=self.getoption('file')
 		self.kind=self.getoption('kind','apache')
                 self.settag('REST')
-                self.unit=self.getoption('unit') 
+                self.unit=self.getoption('unit')
+                self.supportedformat=["sproxyd","apache","dovecot","restapi"]
                 if self.logfile == "":
 			print "ERROR : no file provided"
 			exit(2)
@@ -285,6 +286,11 @@ class Logfile:
         # prepare data to be analyzed
 	# fulldate format as apache : 03/Dec/2014:13:46:38
 	def prepare(self):
+		if self.kind not in self.supportedformat:
+			Message.error(PRGNAME,"Invalid log format :"+str(self.kind))
+			for i in self.supportedformat:
+				print i
+			exit(2)
 		if self.kind=="apache" or self.kind=="dovecot" :
 			self.fulldate=self.line.split("[")[1].split("]")[0]
 			self.payload=self.line.split('"')[1]
