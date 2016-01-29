@@ -1,4 +1,4 @@
-#!/bin/ksh
+#!/bin/bash
 
 PRGDIR=`type $0 | awk '{print $3}'`
 PRGNAME=`basename $0`
