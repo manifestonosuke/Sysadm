@@ -128,8 +128,8 @@ def parseargs(argv,option):
 			opts.pop(i)
 			Message.setlevel('debug')
 			Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
-                else
-                        Message.setlevel('info')
+		else:
+			Message.setlevel('info')
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
