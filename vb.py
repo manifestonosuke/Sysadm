@@ -379,19 +379,15 @@ class vbctl():
 		for N in range(0,6):
 			label='Forwarding('+str(N)+')'
 			#label1='Forwarding(0)'
-			#print(label)
-			#print(label1)
 			#logit.info(PRGNAME,label)
-			#dict.keys()
 			if label in dict.keys():
 				print(label+"\t: {} ".format(dict[label][0].strip('"')))
-				#dict[label]
+
 		# Nic info
 		for N in range(1,8):
 			label='nic'+str(N)
 			logit.debug(PRGNAME,"Checking nic conf for "+label)
 			if label in dict.keys():
-				#print(dict[label][0])
 				if dict[label][0].strip('"') == 'none':
 					break
 				else:
@@ -412,13 +408,12 @@ class vbctl():
 			j=str(i.strip('"'))
 			for diskpattern in diskpatterns:
 				if str(re.search(diskpattern,j)) != 'None':
-					#uuids=dict[i]
+					logit.debug(PRGNAME,"disk found "+str(i))
 					uuids.append(dict[i][0])
 
 		if len(uuids) != 0 :		
-			#print("UUID : Size : Real size : Filename")
 			for uuid in uuids:
-				#print(uuid)
+				logit.debug(PRGNAME,"Cheking UUID disk "+str(uuid))
 				cmd="VBoxManage showhdinfo "+uuid
 				output=execute(cmd).decode("utf-8")
 				for el in output.split("\n"):
@@ -426,7 +421,6 @@ class vbctl():
 					key,value=el2[0],el2[1:]
 					hdinfo[key]=value
 
-				#print("Disk ",end='=')
 				print("Disk UUID : ",hdinfo["UUID"][0].lstrip().split(" ")[0],end=" , ")
 				print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
 				print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
@@ -434,7 +428,6 @@ class vbctl():
 		else:
 			print("INFO : No disk found")
 	
-		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
 		logit.debug(THISFUNC,"Pausing")
