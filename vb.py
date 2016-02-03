@@ -422,9 +422,10 @@ class vbctl():
 					hdinfo[key]=value
 
 				print("Disk UUID : ",hdinfo["UUID"][0].lstrip().split(" ")[0],end=" , ")
-				print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
-				print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
-				print("File : ",hdinfo["Location"][0].split("/").pop())
+				#print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
+				#print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
+				print("Size Cap/Size : {0}/{1}".format(hdinfo["Capacity"][0].lstrip().split(" ")[0],hdinfo["Size on disk"][0].lstrip().split(" ")[0]),end=" , ")
+				print("File : ",hdinfo["Location"][0].lstrip(' '))
 		else:
 			print("INFO : No disk found")
 	
