@@ -393,12 +393,15 @@ class vbctl():
 				else:
 					if dict[label][0].strip('"') == "hostonly" :
 						label1='hostonlyadapter'+str(N)
-						print(label+"\t: hostonly ({})".format(dict[label1][0].strip('"')))
+						#print(label+"\t: hostonly ({})".format(dict[label1][0].strip('"')),end=" : ")
+						iftype=label+"\t: Type : hostonly ({})".format(dict[label1][0].strip('"'))
 					else:
-						print(label+"\t: {} ".format(dict[label][0].strip('"')))
+						#print(label+"\t: {}".format(dict[label][0].strip('"')),end=" : ")
+						iftype=label+"\t: Type : {}".format(dict[label][0].strip('"'))
 				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
 				ip=vbctl.guest_property(arg,dummy)
-				print("ip"+str(N)+" \t: "+ip)
+				#print("ip"+str(N)+" \t: "+ip)
+				print(iftype+", ip: "+ip)
 
 		hdinfo={}
 		uuids=[]
