@@ -36,6 +36,7 @@ def usage():
 
 		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
 		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
+                -v        Verbose mode (too see non expected lines in input file)
 
 		supported option :
 		elapsed : to display elapsed time with the default count
@@ -49,7 +50,7 @@ def usage():
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:T:u:x", ["help", "url="])
+				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:T:u:vx", ["help", "url="])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -95,6 +96,8 @@ def parseargs(argv):
                                                 option['picklein'].append(arg)
 				elif opt in "-T":
 						option['tag']=arg
+				elif opt in "-v":
+						option['verbose']=arg
 
 class Message:
 		"""
@@ -174,7 +177,7 @@ class Logfile:
                 self.banner=[]
 		if logfile == "":
 			print "ERROR : no file provided"
-			exit(2)
+			return(2)
 		try:
 			self.fd=open(logfile)
 		except:
@@ -256,6 +259,33 @@ class Logfile:
 			#print self.elapsed,self.hms,self.fulldate
                         #raw_input()
 			#self.all={'fulldate':fulldate}
+		elif self.kind=="chunkapi":
+                        dict={}
+                        l=self.line.split()
+                        if l[2] != self.kind:
+                            Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
+                            return None
+                        type=l[4].split('=')[1].split('"')[1]
+                        if type != 'end':
+                            return None
+                        self.year=l[1][0:4]
+                        self.month=l[1][4:6]
+                        self.day=l[1][6:8]
+                        self.hms=l[1]
+                        self.ms=self.hms.split('.')[1]
+                        self.hms=self.hms.split('.')[0]
+                        self.payload=l[3:]
+			for k in self.payload:
+			    dict[k.split('=')[0]]=k.split('=')[1].strip('"')
+                        self.elapsed=dict['elapsed'][:-2]
+                        self.returncode=dict['status']
+                        # cmd is not present on error some error status
+                        try:
+                            self.operation=dict['cmd']
+                        except KeyError:
+                             return 'CHUNKERROR'
+                        #Message.debug(PRGNAME,dict)
+                        return True
 		else:
 			raise valueError
 
@@ -501,6 +531,11 @@ def main(option):
 		    Log.printline() 
 		    Message.error(PRGNAME,"Ignoring error reading line "+str(count)) 	
 		    continue
+		elif linestatus == 'CHUNKERROR':
+		    if 'verbose' in option:
+		        Log.printline()
+		        Message.error(PRGNAME,"Ignoring error reading line "+str(count)) 	
+                        continue
 		#	Ignore line not in option['day']
 		if 'day' in option:
 			if Log.day != option['day']:
