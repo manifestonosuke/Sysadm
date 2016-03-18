@@ -18,7 +18,6 @@ import getopt
 
 PRGNAME=os.path.basename(sys.argv[0])
 
-
 def usage():
 		global PRGNAME
 		print PRGNAME,"usage"
@@ -41,12 +40,12 @@ def usage():
 		supported option :
 		elapsed : to display elapsed time with the default count
 
-		supported log format :
-		apache
-		sproxyd
-
                 Note : REST tag is used as  PUT/GET/DELETE/HEAD request 
 		'''
+                print "\t"*2+"Accepted log format :"
+                for i in option['valid_kind']:
+                    print "\t"*3+i
+                    
 
 def parseargs(argv):
 		try:
@@ -173,7 +172,7 @@ class Logfile:
 		self.logfile=logfile
 		self.kind=kind
                 self.result={}
-                self.settag('REST')
+                self.settag('none')
                 self.banner=[]
 		if logfile == "":
 			print "ERROR : no file provided"
@@ -268,9 +267,9 @@ class Logfile:
                         type=l[4].split('=')[1].split('"')[1]
                         if type != 'end':
                             return None
-                        self.year=l[1][0:4]
-                        self.month=l[1][4:6]
-                        self.day=l[1][6:8]
+                        self.year=l[0][0:4]
+                        self.month=l[0][4:6]
+                        self.day=l[0][6:8]
                         self.hms=l[1]
                         self.ms=self.hms.split('.')[1]
                         self.hms=self.hms.split('.')[0]
@@ -285,6 +284,38 @@ class Logfile:
                         except KeyError:
                              return 'CHUNKERROR'
                         #Message.debug(PRGNAME,dict)
+                        return True
+		elif self.kind=="restapi":
+                        dict={}
+                        l=self.line.split()
+                        if l[2] != self.kind:
+                            Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
+                            return None
+                        self.payload=l[3:]
+			for k in self.payload:
+			    dict[k.split('=')[0]]=k.split('=')[1].strip('"')
+                        if 'elapsed' not in dict.keys():
+                            return None
+                        if dict['cmd'] != 'finished': 
+                            return None
+                        if dict['code'] == '403': 
+                            return None
+                        
+                        self.year=l[0][0:4]
+                        self.month=l[0][4:6]
+                        self.day=l[0][6:8]
+                        self.hms=l[1]
+                        self.ms=self.hms.split('.')[1]
+                        self.hms=self.hms.split('.')[0]
+                        
+                        self.elapsed=dict['elapsed'][:-2]
+                        self.returncode=dict['code']
+                        # cmd is not present on error some error status
+                        try:
+                            self.operation=dict['method']
+                        except KeyError:
+                             return 'Line Error : No method'
+                        Message.debug(PRGNAME,dict)
                         return True
 		else:
 			raise valueError
@@ -408,7 +439,6 @@ class Logfile:
                             #print k+"|"+str(count)+"|"+str(avg)+"|",
                         if k not in self.banner:
                             self.banner.append(k)
-		    #print k+"|"+str(count),
 	    if self.unit != 'second':
 	        display_results_print(total,i,j,option)
 
@@ -418,7 +448,8 @@ def display_results_print(list,date,time,option):
 	print date+" "+time+" ",
 	# total['GET'][0]=total ... GET[1]=count
 	# csv need to have 0 value when entry is not found
-	if option['tag']=='REST':
+	#if option['tag']=='REST':
+	if option['tag']=='BLOB':
 	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
@@ -427,7 +458,6 @@ def display_results_print(list,date,time,option):
 	#	print "{0:10s}{1:10s}".format(count,str(avg)),
 	#elif option['format']=='csv':
 	#	print "{0:8s}".format(count),
-            
 	for k in pattern:
 		if k not in list:
 			count="0"
@@ -457,7 +487,7 @@ def display_results_print(list,date,time,option):
 
 #default option count rest command
 option={'operation':'rest'}
-
+option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd']
 file=""
 option['file']=file
 option['count']=-1
@@ -518,7 +548,7 @@ def main(option):
 			Message.debug(PRGNAME,"EOF for file "+file)
 			if counted != 0:
 				print
-				#display_results(Log.result,option)
+		  		#display_results(Log.result,option)
 				Log.display_results(option)
 			else:
 				Message.info(PRGNAME,"no line selected")
@@ -552,7 +582,7 @@ def main(option):
 		#if Q == 'DELETE': 
 		#    Q='DEL'
                 Q=Log.getop()
-		Message.debug(PRGNAME,"Op is : "+Q+str(Log.elapsed))
+		Message.debug(PRGNAME,"Op is : "+Q+':'+str(Log.elapsed))
 		#result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
 		Log.aggragate_result(Q)
 	# to treat where no data
