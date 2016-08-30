@@ -395,12 +395,13 @@ def dump_fs(option,blk):
 		run=""
 		# We are on a device name using name has hostname + part number as filename
 		if is_dev(i):
-			part=i.split('/')[-1]
+			part=i
+			shortpart=i.split('/')[-1]
 			this=blk.get()[i]
 			if 'LABEL' in this:
 				label=this['LABEL']
-				Message.debug(PRGNAME,"found label "+label+"for device "+i)
-				output=label+"."+part	
+				Message.debug(PRGNAME,"found label "+label+" for device "+i)
+				output=label+"."+shortpart	
 			else:
 				output=os.uname()[1]+"."+part
 		# We have a label and thus extract device 
@@ -493,7 +494,7 @@ def dump_fs(option,blk):
 		timeend2=localtime()	
 		diff=mktime(timeend2)-mktime(timestart2)
 		Message.info(PRGNAME,'End Job at '+timeend+" ("+str(diff)+" seconds) "+str(count)+" files dumped")
-		return ret	
+	return ret	
 		
 if __name__ != '__main__':
 	print('loaded')
@@ -543,6 +544,7 @@ else:
 		valid_devices=devices.get_valid_device(option)
 		for i in valid_devices:
 			option['SOURCE'].append(i)
+			Message.debug(PRGNAME,"Adding Valid device "+str(i))
 		if len(valid_devices) == 0:
 			Message.warning(PRGNAME,"no devices selected with this arguments")
 			end(0)
