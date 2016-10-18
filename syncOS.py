@@ -302,7 +302,11 @@ class Blkid():
 			self.blkstruct[device]={}
 			args=args.split(' ')
 			for tuple in args:
+				Message.debug(PRGNAME,"tuple blk : "+str(tuple))
 				if len(tuple) == 0:
+					continue
+				if "=" not in tuple:
+					Message.warning(PRGNAME,"Unexpected value : "+str(tuple))
 					continue
 				k,v=tuple.split("=")
 				v=v.replace('"','')
