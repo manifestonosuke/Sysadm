@@ -79,6 +79,7 @@ def usage():
         -0 : Power OFF the vbox
         -v : full verbose mode (will list all vbox command runned)
 	-V : set vrde on on port range 3389-3399
+	-x : Start the vbox in graphic mode
 	"""
 	message=message+add
 	print(message)	
@@ -147,7 +148,7 @@ def parseargs(argv):
 			print(AA)
 			end()
 	try:
-		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:0:", ["help"])
+		opts, args = getopt.getopt(argv, "dG:hO:lL:p:r:R:s:S:vV:x:0:", ["help"])
 	except getopt.GetoptError:
 		logit.info(PRGNAME+"...parseargs","Bad argument")
 		usage()
@@ -243,6 +244,9 @@ def parseargs(argv):
 				output=execute(cmd).decode('utf-8')
 				cmd="VBoxManage modifyvm "+arg+" --vrdeport "+PORT
 				output=execute(cmd).decode('utf-8')
+			end(0)
+		elif opt == '-x' :
+			rez=vbctl.guest_start(arg,"gui")
 			end(0)
 		elif opt == 0 :
 			vbctl.guest_poweroff(arg)
@@ -375,61 +379,59 @@ class vbctl():
 		for N in range(0,6):
 			label='Forwarding('+str(N)+')'
 			#label1='Forwarding(0)'
-			#print(label)
-			#print(label1)
 			#logit.info(PRGNAME,label)
-			#dict.keys()
 			if label in dict.keys():
 				print(label+"\t: {} ".format(dict[label][0].strip('"')))
-				#dict[label]
+
 		# Nic info
 		for N in range(1,8):
 			label='nic'+str(N)
 			logit.debug(PRGNAME,"Checking nic conf for "+label)
 			if label in dict.keys():
-				#print(dict[label][0])
 				if dict[label][0].strip('"') == 'none':
 					break
 				else:
 					if dict[label][0].strip('"') == "hostonly" :
 						label1='hostonlyadapter'+str(N)
-						print(label+"\t: hostonly ({})".format(dict[label1][0].strip('"')))
+						#print(label+"\t: hostonly ({})".format(dict[label1][0].strip('"')),end=" : ")
+						iftype=label+"\t: Type : hostonly ({})".format(dict[label1][0].strip('"'))
 					else:
-						print(label+"\t: {} ".format(dict[label][0].strip('"')))
+						#print(label+"\t: {}".format(dict[label][0].strip('"')),end=" : ")
+						iftype=label+"\t: Type : {}".format(dict[label][0].strip('"'))
 				dummy="/VirtualBox/GuestInfo/Net/"+str(N-1)+"/V4/IP"	
 				ip=vbctl.guest_property(arg,dummy)
-				print("ip"+str(N)+" \t: "+ip)
+				#print("ip"+str(N)+" \t: "+ip)
+				print(iftype+", ip: "+ip)
 
 		hdinfo={}
 		uuids=[]
 		#diskpattern="SATA Controller-ImageUUID"
-		#diskpattern="SATA-*ImageUUID"
-		diskpattern="SATA*Controller*"
+		diskpatterns=["SATA.*ImageUUID","SCSI-ImageUUID"]
 		for i in dict.keys():
-			print(i)
-			if str(re.search(diskpattern,str(i))) != 'None':
-				uuids=dict[i]
+			j=str(i.strip('"'))
+			for diskpattern in diskpatterns:
+				if str(re.search(diskpattern,j)) != 'None':
+					logit.debug(PRGNAME,"disk found "+str(i))
+					uuids.append(dict[i][0])
 
 		if len(uuids) != 0 :		
-			#print("UUID : Size : Real size : Filename")
 			for uuid in uuids:
-				#print(uuid)
-				cmd="vboxmanage showhdinfo "+uuid
+				logit.debug(PRGNAME,"Cheking UUID disk "+str(uuid))
+				cmd="VBoxManage showhdinfo "+uuid
 				output=execute(cmd).decode("utf-8")
 				for el in output.split("\n"):
 					el2=el.split(':')
 					key,value=el2[0],el2[1:]
 					hdinfo[key]=value
 
-				#print("Disk ",end='=')
 				print("Disk UUID : ",hdinfo["UUID"][0].lstrip().split(" ")[0],end=" , ")
-				print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
-				print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
-				print("File : ",hdinfo["Location"][0].split("/").pop())
+				#print("Max size : ",hdinfo["Capacity"][0].lstrip().split(" ")[0], end=" , ")
+				#print("Actual size :",hdinfo["Size on disk"][0].lstrip().split(" ")[0], end=" , " )
+				print("Size Cap/Size : {0}/{1}".format(hdinfo["Capacity"][0].lstrip().split(" ")[0],hdinfo["Size on disk"][0].lstrip().split(" ")[0]),end=" , ")
+				print("File : ",hdinfo["Location"][0].lstrip(' '))
 		else:
-			print("No disk found as SATA ImageUUID")
+			print("INFO : No disk found")
 	
-		#end(0)
 	def guest_pause(arg):
 		THISFUNC=PRGNAME+".guest_pause"
 		logit.debug(THISFUNC,"Pausing")
@@ -460,7 +462,7 @@ class vbctl():
 		output=execute(cmd)
 		logit.debug(THISFUNC,"Pausing proc exit")
 		end(0)
-	def guest_start(arg):
+	def guest_start(arg,option='headless'):
 		THISFUNC=PRGNAME+".guest_start"
 		logit.debug(THISFUNC,"Starting "+arg)
 		if vbctl.exist(arg) == 0 :
@@ -468,8 +470,9 @@ class vbctl():
 			sys.exit(1)
 		#cmd=("VBoxHeadless --startvm "+arg+" -vrde on &")
 		#cmd=("VBoxHeadless --startvm "+arg+" -vrde on")
-		cmd=("VBoxManage startvm "+arg+" --type headless")
+		cmd=("VBoxManage startvm "+arg+" --type "+option)
 		output=execute(cmd).decode("utf-8")
+#output=execute(cmd).decode("utf-8")
 		print(output)
 		logit.debug(THISFUNC,"Starting proc exit")
 		end(0)

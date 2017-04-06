@@ -103,9 +103,11 @@ def usage():
 	-o      Force overwrite when file exist
 	-P      Save the MBR and partition table
 	-q      Silent mode (to be done)
+        -r      [file] restore from file using device name from file name
 	-t      Target dir to write output file (if not specified $(pwd))
 	-T	add a TAG on the dest file name ( standard label-dev.fsa TAG-label-dev.fsa)
 	-z      Compression level (as for fsarchiver)
+	
 	"""
 	add+="\nDefault device to dump is "+option['DEVICE']
 	add+="\nDefault target directory to store archives is "+option['TARGET']
@@ -117,7 +119,7 @@ def parseargs(argv,option):
 	if len(argv)==0:
 		return option
 	try:
-		opts, args = getopt.getopt(argv, "AdF:hLoPs:t:T:qvz:", ["help"])
+		opts, args = getopt.getopt(argv, "AdF:hLoPr:s:t:T:qvz:", ["help"])
 	except getopt.GetoptError:
 		Message.fatal(PRGNAME,"Argument error",10)
 	#if Message.getlevel()=='debug':
@@ -128,8 +130,8 @@ def parseargs(argv,option):
 			opts.pop(i)
 			Message.setlevel('debug')
 			Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
-                else
-                        Message.setlevel('info')
+		else:
+			Message.setlevel('info')
 	for opt, arg in opts:
 		if opt in ("-h", "--help"):
 			usage()
@@ -148,6 +150,9 @@ def parseargs(argv,option):
 			Message.setlevel='silent'
 		elif opt == '-P':
 			option['ACTION']='part'
+		elif opt == '-r':
+			option['ACTION']='restore'
+			option['SOURCE']=arg
 		elif opt == '-s':
 			option['SOURCE'].append(arg)
 		elif opt == '-t':
@@ -302,7 +307,11 @@ class Blkid():
 			self.blkstruct[device]={}
 			args=args.split(' ')
 			for tuple in args:
+				Message.debug(PRGNAME,"tuple blk : "+str(tuple))
 				if len(tuple) == 0:
+					continue
+				if "=" not in tuple:
+					Message.warning(PRGNAME,"Unexpected value : "+str(tuple))
 					continue
 				k,v=tuple.split("=")
 				v=v.replace('"','')
@@ -379,6 +388,43 @@ def is_dev(dev):
 		return False
 
 
+def restore_fs(option):
+	timer=3
+	source=option['SOURCE']
+	device=source.split('.')[1]
+	osname=source.split('.')[0]
+	cmd="fsarchiver restfs {0} id=0,dest=/dev/{1}".format(source,device)
+	Message.info(PRGNAME,"About to restore to /dev/{0}, in {1} seconds".format(device,timer))
+	sleep(timer)
+	Message.info(PRGNAME,"Starting restore")
+	try:
+		fd=open(source)
+	except IOError as e:
+		Message.error(PRGNAME,"Error opening {0} : error {1}".format(source,e)) 
+		sys.exit(9)
+	cmd=cmd.split()
+	ps=subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+	#stdout,stderr=ps.communicate()
+
+	while True:
+		if ps.poll() != None:
+			break
+		try:
+			nextline = next(ps.stderr)
+		except StopIteration:
+			break
+		line=nextline.decode('utf-8').rstrip('\n')
+		print(line)
+
+	if ps.returncode == 0:
+		Message.info(PRGNAME,"End restore, verify error and partition label")
+		print(ps.stdout.decode("utf-8"))
+	else:
+		Message.error(PRGNAME,"fsarchiver return an error {0}, message {1}".format(ps.stdout,ps.stderr))
+	return(ps.returncode)
+        
+	
+
 def dump_fs(option,blk):
 	""" dump the fs option is the struct with all params blk the blkid struct"""
 	output=""
@@ -395,12 +441,13 @@ def dump_fs(option,blk):
 		run=""
 		# We are on a device name using name has hostname + part number as filename
 		if is_dev(i):
-			part=i.split('/')[-1]
+			part=i
+			shortpart=i.split('/')[-1]
 			this=blk.get()[i]
 			if 'LABEL' in this:
 				label=this['LABEL']
-				Message.debug(PRGNAME,"found label "+label+"for device "+i)
-				output=label+"."+part	
+				Message.debug(PRGNAME,"found label "+label+" for device "+i)
+				output=label+"."+shortpart	
 			else:
 				output=os.uname()[1]+"."+part
 		# We have a label and thus extract device 
@@ -493,7 +540,7 @@ def dump_fs(option,blk):
 		timeend2=localtime()	
 		diff=mktime(timeend2)-mktime(timestart2)
 		Message.info(PRGNAME,'End Job at '+timeend+" ("+str(diff)+" seconds) "+str(count)+" files dumped")
-		return ret	
+	return ret	
 		
 if __name__ != '__main__':
 	print('loaded')
@@ -529,6 +576,10 @@ else:
 		end(ret)
 	
 	devices=Blkid()
+	if option['ACTION'] == 'restore':
+		ret=restore_fs(option)
+		sys.exit(ret)
+	
 	if option['ACTION'] == 'list':
 		ret=devices.get_device_label(option)
 		end(0)
@@ -543,13 +594,14 @@ else:
 		valid_devices=devices.get_valid_device(option)
 		for i in valid_devices:
 			option['SOURCE'].append(i)
+			Message.debug(PRGNAME,"Adding Valid device "+str(i))
 		if len(valid_devices) == 0:
 			Message.warning(PRGNAME,"no devices selected with this arguments")
 			end(0)
 		Message.info(PRGNAME,"Starting to dump : "+" ".join(valid_devices)) 
 	else:
 		Message.info(PRGNAME,"starting to dump : "+" ".join(option['SOURCE']))
-			
+	
 	dump_fs(option,devices)
 	#disk.get()
 	end(0)

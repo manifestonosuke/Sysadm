@@ -56,14 +56,15 @@ def parseargs(argv):
 		#print "Parsing opt",opts,"arg",args
 		global option
 		global DEBUG
+		Message.setlevel('info')
 		for i,el in enumerate(opts):
 				if '-d' in el:
 						"remove -d arg from opts string and go debug"
 						opts.pop(i)
+						print 'toto'
 						Message.setlevel('debug')
 						Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
-				else:
-						Message.setlevel('info')
+						#break
 		for opt, arg in opts:
 				if opt in ("-h", "--help"):
 						usage()
@@ -96,7 +97,15 @@ def parseargs(argv):
 				elif opt in "-T":
 						option['tag']=arg
 				elif opt in "-v":
+						Message.setlevel('verbose')
 						option['verbose']=arg
+
+                if 'operation' in option:
+                        if option['operation'] == 'bizioname':
+                            if option['kind'] != 'chunkapi':
+                                Message.error(PRGNAME,"option bizioname must be on chunkapi files")
+                                exit(9)
+                            
 
 class Message:
 		"""
@@ -168,12 +177,21 @@ class Message:
 #msg.setlevel('debug')
 
 class Logfile:
-	def __init__(self,logfile,kind="apache"):
+	def __init__(self,logfile,kind="apache",option={}):
 		self.logfile=logfile
 		self.kind=kind
                 self.result={}
                 self.settag('none')
                 self.banner=[]
+		if 'operation' in option:
+			self.op=option['operation']
+			if ',' in self.op:
+				self.opfilter=self.op.split(',')[1]
+				self.op=self.op.split(',')[0]
+				Message.debug(PRGNAME,"operation and filter {0} {1}".format(self.op,self.opfilter))
+			else:
+				self.opfilter=None
+				Message.debug(PRGNAME,"operation {0}".format(self.op))
 		if logfile == "":
 			print "ERROR : no file provided"
 			return(2)
@@ -273,12 +291,28 @@ class Logfile:
                         self.hms=l[1]
                         self.ms=self.hms.split('.')[1]
                         self.hms=self.hms.split('.')[0]
+                        self.hour,self.minute,self.second=self.hms.split(':')
                         self.payload=l[3:]
 			for k in self.payload:
 			    dict[k.split('=')[0]]=k.split('=')[1].strip('"')
+                        if dict['status'] != "CHUNKAPI_STATUS_OK":
+				Message.verbose(PRGNAME,"key status is not OK ignored {0}".format(str(self.payload)))
+				return None    
                         self.elapsed=dict['elapsed'][:-2]
                         self.returncode=dict['status']
                         # cmd is not present on error some error status
+                        if self.op == 'bizioname':
+			    if self.opfilter:
+				if 'cmd' not in dict.keys():
+					print str(self.payload)
+			        if dict['cmd'] != self.opfilter:
+				    Message.debug(PRGNAME,"Operation filtered out {0}".format(dict['cmd']))
+			            return None
+                            try:
+                            	self.operation=dict['bizioname']
+                            except KeyError:
+                                return 'BIZIO NAME ERROR'
+			    return True
                         try:
                             self.operation=dict['cmd']
                         except KeyError:
@@ -359,8 +393,7 @@ class Logfile:
 		self.result[self.day][self.hms][operation][1]+=1
 	    else:
 		self.result[self.day][self.hms][operation]=[self.elapsed,1]
-	    #return(result)		
-    
+ 
         def display_results(self,option={}):
 	    prevday=day=None
 	    prevhour=hour=None
@@ -375,10 +408,10 @@ class Logfile:
                 formatstring.append(el)
             if option['format']=='csv'and option['operation'] != 'elapsed' :
                 formatstring=[]
-                for el in self.banner:
+                for el in sorted(self.banner):
                     formatstring.append(el)
                 #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
-                print "#{0:11s}{1:9s}".format('day','time'),
+                print "::{0:4s}{1:8s}".format('day','time'),
                 for i in formatstring:
                     print i.ljust(10),
                 print
@@ -388,8 +421,8 @@ class Logfile:
                 for el in self.banner:
                     formatstring.append(el)
                     formatstring.append("avg")
-                print "#{0:11s}{1:9s}".format('day','time'),
-                for i in formatstring:
+                print "::{0:4s}{1:8s}".format('day','time'),
+                for i in sorted(formatstring):
                     print i.ljust(9),
                 print
             for i in sorted(self.result.keys()):
@@ -406,20 +439,20 @@ class Logfile:
                     Message.debug(PRGNAME+":display_results",str(h)+","+str(m)+","+str(s)+","+str(prevsec))
                     if self.unit == 'second' and prevsec != s:
                         time=h+":"+m+":"+str(s) 
-                        total=display_results_print(total,i,time,option)
+                        total=display_results_print(total,i,time,option,self.banner)
                         prevsec=s
                     if self.unit == 'minute' and prevmin != m:
                         #time=prevhour+":"+prevmin+":00" 
                         #time=h+":"+prevmin+":"+s
                         time=h+":"+m+":"+str(s) 
-                        total=display_results_print(total,i,time,option)
+                        total=display_results_print(total,i,time,option,self.banner)
                         prevmin=m
                     if self.unit == 'hour' and prevhour != h:
                         time=prevhour+":"+m+":00" 
-                        total=display_results_print(total,i,time,option)
+                        total=display_results_print(total,i,time,option,self.banner)
                         prevhour=h
                     if self.unit == 'day' and prevday != day:
-                        total=display_results_print(total,prevday,time,option)
+                        total=display_results_print(total,prevday,time,option,self.banner)
                         prevday=d
 
                     Message.debug(PRGNAME+":display_results",self.result[i][j])
@@ -440,12 +473,13 @@ class Logfile:
                         if k not in self.banner:
                             self.banner.append(k)
 	    if self.unit != 'second':
-	        display_results_print(total,i,j,option)
+	        display_results_print(total,i,j,option,self.banner)
 
 
-def display_results_print(list,date,time,option):
+def display_results_print(list,date,time,option,banner=None):
 	""" get a list and display it while calculing stats"""
-	print date+" "+time+" ",
+	#print date+" "+time+" ",
+        print "{0:6s}{1:8s}".format(date,time),
 	# total['GET'][0]=total ... GET[1]=count
 	# csv need to have 0 value when entry is not found
 	#if option['tag']=='REST':
@@ -453,7 +487,8 @@ def display_results_print(list,date,time,option):
 	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
-		pattern=sorted(list.keys())
+		#pattern=sorted(list.keys())
+		pattern=sorted(banner)
 	#if option['format']=='csv'and option['operation'] == 'elapsed':
 	#	print "{0:10s}{1:10s}".format(count,str(avg)),
 	#elif option['format']=='csv':
@@ -476,8 +511,8 @@ def display_results_print(list,date,time,option):
 			if option['operation'] == 'elapsed':
 				display='{2}:{0}|{1}|\t'.format(avg,count,k)
 			else:
-				display='{0}|{1}\t'.format(count,k)
-				#print k+"|"+display,
+				#display='{0}|{1}\t'.format(count,k)
+				display='{1}|{0}\t'.format(count,k)
 			print display,
 		if k in list:
 			del list[k]
@@ -490,7 +525,6 @@ option={'operation':'rest'}
 option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd']
 file=""
 option['file']=file
-option['count']=-1
 option['format']="list"
 option['tag']='REST'
 
@@ -530,7 +564,7 @@ displaydate=""
 prevhms=-7
 def main(option):
 	Message.debug(PRGNAME,":"+option['operation']+":")
-	Log=Logfile(option['file'],kind)
+	Log=Logfile(option['file'],kind,option)
 	result={}
 	counted=0 
 	count=0 
@@ -548,12 +582,19 @@ def main(option):
 			Message.debug(PRGNAME,"EOF for file "+file)
 			if counted != 0:
 				print
-		  		#display_results(Log.result,option)
 				Log.display_results(option)
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
-		#Log.prepare()
+                if "count" in option and count > int(option['count']):
+			""" reach manual line count setting """
+			Message.debug(PRGNAME,"Reach the max counter of lines"+file)
+			if counted != 0:
+				print
+				Log.display_results(option)
+			else:
+				Message.info(PRGNAME,"no line selected")
+			break
 		linestatus=Log.prepare()
                 if linestatus == None :
                     continue
@@ -567,6 +608,9 @@ def main(option):
 		        Message.error(PRGNAME,"Ignoring error reading line "+str(count)) 	
                         continue
 		#	Ignore line not in option['day']
+		if count%100 == 0: 
+			msg='\rLine browsed '+str(count)+":::::"+str(counted)
+			sys.stderr.write(msg)
 		if 'day' in option:
 			if Log.day != option['day']:
 				continue
@@ -575,9 +619,6 @@ def main(option):
 				continue
 			Message.debug(PRGNAME,'counted '+str(counted))
 		counted+=1
-		if count%100 == 0: 
-			msg='\rLine browsed '+str(count) 
-			sys.stderr.write(msg)
 		#Q=Log.operation
 		#if Q == 'DELETE': 
 		#    Q='DEL'
