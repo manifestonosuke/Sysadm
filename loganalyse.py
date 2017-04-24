@@ -15,6 +15,7 @@ from datetime import datetime
 import os 
 import sys
 import getopt
+import pickle
 
 PRGNAME=os.path.basename(sys.argv[0])
 
@@ -30,11 +31,13 @@ def usage():
 		-o option  Use specific option (see below) 
 		-k	  specify log format (see below)
 		-u	  Unit to sort data (hour/minute ...)
-		-x	  Use csv format
-                -T        TAG to search by default REST 
 
 		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
 		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
+		-i	  Load data from a pickle file (previously saved with -p)
+		-p	  Save data in pickle format 
+		-x	  Use csv format
+                -T        TAG to search by default REST 
                 -v        Verbose mode (too see non expected lines in input file)
 
 		supported option :
@@ -49,7 +52,7 @@ def usage():
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:f:k:o:T:u:vx", ["help", "url="])
+				opts, args = getopt.getopt(argv, "Ac:dD:hH:i:f:k:o:p:T:u:vx", ["help", "url="])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -61,7 +64,6 @@ def parseargs(argv):
 				if '-d' in el:
 						"remove -d arg from opts string and go debug"
 						opts.pop(i)
-						print 'toto'
 						Message.setlevel('debug')
 						Message.debug(PRGNAME,"going debug, remaining args "+str(opts)+" "+str(args))
 						#break
@@ -82,6 +84,8 @@ def parseargs(argv):
 						#print "using File "+file,
 				elif opt in "-H":
 						option['hour']=arg 
+                                elif opt in "-i":
+                                                option['picklein']=arg
 				elif opt in "-k":
 						option['kind']=arg 
 				elif opt in "-u":
@@ -91,9 +95,7 @@ def parseargs(argv):
 				elif opt in "-o":
 						option['operation']=arg
                                 elif opt in "-p":
-                                                if 'pickelin' not in option:
-                                                    option['picklein']=[]
-                                                option['picklein'].append(arg)
+                                                option['pickleout']=arg
 				elif opt in "-T":
 						option['tag']=arg
 				elif opt in "-v":
@@ -143,12 +145,12 @@ class Message:
 		warning=classmethod(warning)
 
 		def debug(cls,p,m):
-				if Message.level == 'debug':
+				if Message.level == 'debug': 
 						print("%-10s : %-10s : %-30s" % ("DEBUG",p,m))
 		debug=classmethod(debug)
 
 		def verbose(cls,p,m):
-				if Message.level == 'verbose':
+				if Message.level == 'verbose' or Message.level == 'debug':
 						print("%-10s : %-10s : %-30s" % ("VERBOSE",p,m))
 		verbose=classmethod(verbose)
 
@@ -208,6 +210,15 @@ class Logfile:
                     return(0)
             self.line=l
 	    return(1)
+
+	def load_pickle(self,file):
+		try:
+			self.result = pickle.load(open(file,"r"))
+		except IOError as e:
+			Message.error(PRGNAME,"Error opening {2} {0}: {1}".format(e.errno, e.strerror,option['picklein']))
+		except ValueError:
+			Message.error("Error loading data from {2} {0}: {1}".format(e.errno, e.strerror,option['picklein']))
+		return
 
 	def printline(self):
 	    print self.line,
@@ -295,9 +306,16 @@ class Logfile:
                         self.payload=l[3:]
 			for k in self.payload:
 			    dict[k.split('=')[0]]=k.split('=')[1].strip('"')
-                        if dict['status'] != "CHUNKAPI_STATUS_OK":
+                        try:
+			    if dict['status'] != "CHUNKAPI_STATUS_OK":
 				Message.verbose(PRGNAME,"key status is not OK ignored {0}".format(str(self.payload)))
-				return None    
+				return None
+			except KeyError:
+			    Message.verbose(PRGNAME,"Error on this line, no status found {0}, ignoring : ".format(str(dict)))
+			    return None
+			if ('elasped' and 'bizioname' and 'cmd') not in dict.keys():
+                            Message.verbose(PRGNAME,"Missing pattern in line {0}, ignoring : ".format(str(dict)))
+                            return None
                         self.elapsed=dict['elapsed'][:-2]
                         self.returncode=dict['status']
                         # cmd is not present on error some error status
@@ -306,7 +324,7 @@ class Logfile:
 				if 'cmd' not in dict.keys():
 					print str(self.payload)
 			        if dict['cmd'] != self.opfilter:
-				    Message.debug(PRGNAME,"Operation filtered out {0}".format(dict['cmd']))
+				    Message.verbose(PRGNAME,"Operation filtered out {0}".format(dict['cmd']))
 			            return None
                             try:
                             	self.operation=dict['bizioname']
@@ -395,6 +413,15 @@ class Logfile:
 		self.result[self.day][self.hms][operation]=[self.elapsed,1]
  
         def display_results(self,option={}):
+            if 'pickleout' in option:
+            	outfile=option['pickleout']
+		try:
+			pickle.dump(self.result,open(outfile,"w"))
+		except:
+                        print "Unexpected error:", sys.exc_info()[0]
+                        sys.exit(2)
+		Message.info(PRGNAME,"file {0} dumped".format(outfile))
+		sys.exit(0)
 	    prevday=day=None
 	    prevhour=hour=None
 	    prevmin=minute=None
@@ -509,10 +536,13 @@ def display_results_print(list,date,time,option,banner=None):
 			print "{0:10s}".format(count),
 		else:
 			if option['operation'] == 'elapsed':
-				display='{2}:{0}|{1}|\t'.format(avg,count,k)
+				#display='{2}:{0}|{1}|\t'.format(avg,count,k)
+				display='{2}:{0}|{1}|'.format(avg,count,k)
+				display='{0:30s}'.format(display)
 			else:
 				#display='{0}|{1}\t'.format(count,k)
-				display='{1}|{0}\t'.format(count,k)
+				display='{1}|{0}'.format(count,k)
+				display='{0:25}'.format(display)
 			print display,
 		if k in list:
 			del list[k]
@@ -577,6 +607,11 @@ def main(option):
 	while True:
 		l=Log.readone() 
 		count+=1
+                if 'picklein' in option:
+			Log.load_pickle(option['picklein'])
+			Log.display_results(option)
+			exit(0)
+
 		if not l:
 			""" no more lines in the file """ 
 			Message.debug(PRGNAME,"EOF for file "+file)
