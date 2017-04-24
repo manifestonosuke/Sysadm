@@ -19,6 +19,14 @@ import pickle
 
 PRGNAME=os.path.basename(sys.argv[0])
 
+
+#default option count rest command
+option={'operation':'rest'}
+option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd']
+option['file']=""
+option['format']="list"
+option['tag']='REST'
+
 def usage():
 		global PRGNAME
 		print PRGNAME,"usage"
@@ -87,7 +95,11 @@ def parseargs(argv):
                                 elif opt in "-i":
                                                 option['picklein']=arg
 				elif opt in "-k":
-						option['kind']=arg 
+						if arg in option['valid_kind']:
+							option['kind']=arg 
+						else:
+							Message.error(PRGNAME,"type {0} not a valid type {1}\n".format(arg,str(option['valid_kind'])))
+							sys.exit(9)
 				elif opt in "-u":
 						option['unit']=arg 
 				elif opt in "-x":
@@ -550,13 +562,6 @@ def display_results_print(list,date,time,option,banner=None):
 	return(list)
 
 
-#default option count rest command
-option={'operation':'rest'}
-option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd']
-file=""
-option['file']=file
-option['format']="list"
-option['tag']='REST'
 
 
 
