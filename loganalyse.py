@@ -29,38 +29,37 @@ option['tag']='REST'
 
 def usage():
 		global PRGNAME
-		print PRGNAME,"usage"
+                print "\n\tSyntax : {0} -f FILE [option]".format(PRGNAME)
 		print '''
-		loganalyze -f FILE 
-		-A	  Analyze all the file
-		-c	  Analyze only this count of files
-		-d	  Debug
-		-f	  Use file
-		-o option  Use specific option (see below) 
-		-k	  specify log format (see below)
-		-u	  Unit to sort data (hour/minute ...)
-
-		-D	  Specify a day to display (format as original log file ie apache 01/Jan/2011)
-		-H	  Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
-		-i	  Load data from a pickle file (previously saved with -p)
-		-p	  Save data in pickle format 
-		-x	  Use csv format
-                -T        TAG to search by default REST 
-                -v        Verbose mode (too see non expected lines in input file)
+                -c <number> Analyze only this count of files
+		-d	    Debug
+		-D <day>    Specify a day to display (format as original log file ie apache 01/Jan/2011)
+		-f <file>   Source data log file
+		-i <file>   Load data from a pickle file (previously saved with -p)
+                -h          This help
+		-H <hour>   Specif an hour like 12 for 12h, 12:00 for 12h 00 mn 
+		-k <type>   specify log type (see below)
+		-o <option> Use specific option (see below) 
+		-p <file>   Save data in pickle format (-i to load) 
+                -T <tag>    TAG to search by default REST 
+		-u <unit>   Unit to sort data : hour, minute or second
+                -v          Verbose mode (Additionnal messages less verbose that debug)
+		-x	    Use csv format to display output
 
 		supported option :
 		elapsed : to display elapsed time with the default count
+                bizioname : Only with chunkapi format, display nb iops per disk
 
                 Note : REST tag is used as  PUT/GET/DELETE/HEAD request 
 		'''
-                print "\t"*2+"Accepted log format :"
+                print "\t"*2+"Accepted log type :"
                 for i in option['valid_kind']:
                     print "\t"*3+i
                     
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "Ac:dD:hH:i:f:k:o:p:T:u:vx", ["help", "url="])
+				opts, args = getopt.getopt(argv, "c:dD:hH:i:f:k:o:p:T:u:vx", ["help"])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -79,8 +78,6 @@ def parseargs(argv):
 				if opt in ("-h", "--help"):
 						usage()
 						sys.exit()
-				elif opt == '-A':
-						option['ALL'] = 1
 				elif opt == '-c':
 						option['count'] = arg
 				elif opt == '-d':
@@ -573,9 +570,6 @@ if 'csv' in option:
 	csvchar=';'
 else:
 	csvchar=" "
-
-if 'ALL' in option:
-	refday=""
 
 if 'csv' in option:
 	print 'date'+csvchar+'hour'+csvchar+'PUT'+csvchar+'GET'+csvchar+'DELETE'+csvchar+'HEAD'
