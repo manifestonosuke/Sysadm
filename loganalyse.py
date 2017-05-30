@@ -613,7 +613,7 @@ def main(option):
 
 		if not l:
 			""" no more lines in the file """ 
-			Message.debug(PRGNAME,"EOF for file "+file)
+			Message.debug(PRGNAME,"EOF for file "+option['file'])
 			if counted != 0:
 				print
 				Log.display_results(option)
@@ -622,7 +622,7 @@ def main(option):
 			break
                 if "count" in option and count > int(option['count']):
 			""" reach manual line count setting """
-			Message.debug(PRGNAME,"Reach the max counter of lines"+file)
+			Message.debug(PRGNAME,"Reach the max counter of lines"+option['file'])
 			if counted != 0:
 				print
 				Log.display_results(option)
