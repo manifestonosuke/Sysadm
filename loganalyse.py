@@ -24,7 +24,7 @@ PRGNAME=os.path.basename(sys.argv[0])
 
 #default option count rest command
 option={'operation':'rest'}
-option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd']
+option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd','chordbucket']
 option['file']=""
 option['format']="list"
 option['tag']='REST'
@@ -394,6 +394,37 @@ class Logfile:
                              return 'Line Error : No method'
                         Message.debug(PRGNAME,dict)
                         return True
+                elif self.kind=="chordbucket":
+                        dict={}
+                        l=self.line.split()
+                        #Message.warning(PRGNAME,"processing : "+str(l))
+                        if l[2] != self.kind:
+                            Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
+                            return None
+                        for i in l[3:]:
+                            dict[i.split('=')[0]]=i.split('=')[1]
+                        #type=l[4].split('=')[1].split('"')[1]
+                        if "elapsed" not in dict:
+                            return None
+                        if dict["action"] not in ["DEL_OBJ","PUT_OBJ","GET_OBJ","GET_BUCKETACL"]:
+                            return None
+                        self.year=l[0][0:4]
+                        self.month=l[0][4:6]
+                        self.day=l[0][6:8]
+                        self.hms=l[1]
+                        self.ms=self.hms.split('.')[1]
+                        self.hms=self.hms.split('.')[0]
+                        self.payload=l[3:]
+                        self.elapsed=dict['elapsed'][:-2]
+                        self.returncode=dict['status']
+                        # cmd is not present on error some error status
+                        try:
+                            self.operation=dict['action']
+                        except KeyError:
+                             return 'CHORDBUCKET ERROR'
+                        #Message.debug(PRGNAME,dict)
+                        return True
+
 		else:
 			raise valueError
 
@@ -477,6 +508,9 @@ class Logfile:
                 for i in sorted(formatstring):
                     print i.ljust(9),
                 print
+            if self.result.keys() == []:
+                Message.warning(PRGNAME+" No results found",None)
+                exit(0)
             for i in sorted(self.result.keys()):
                 if prevday==None: 
                     prevday=i
@@ -540,7 +574,8 @@ def display_results_print(list,date,time,option,banner=None):
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
 		#pattern=sorted(list.keys())
-		pattern=sorted(banner)
+		##!## pattern=sorted(banner)
+                pattern=sorted(list.keys())
 	#if option['format']=='csv'and option['operation'] == 'elapsed':
 	#	print "{0:10s}{1:10s}".format(count,str(avg)),
 	#elif option['format']=='csv':
@@ -563,11 +598,11 @@ def display_results_print(list,date,time,option,banner=None):
 			if option['operation'] == 'elapsed':
 				#display='{2}:{0}|{1}|\t'.format(avg,count,k)
 				display='{2}:{0}|{1}|'.format(avg,count,k)
-				display='{0:30s}'.format(display)
+				##!## display='{0:30s}'.format(display)
 			else:
-				#display='{0}|{1}\t'.format(count,k)
-				display='{1}|{0}'.format(count,k)
-				display='{0:25}'.format(display)
+				display='{0}|{1}\t'.format(count,k)
+				##!## display='{1}|{0}'.format(count,k)
+				##!## display='{0:25}'.format(display)
 			print display,
 		if k in list:
 			del list[k]
