@@ -16,6 +16,8 @@ import os
 import sys
 import getopt
 import pickle
+import gzip
+
 
 PRGNAME=os.path.basename(sys.argv[0])
 
@@ -206,10 +208,20 @@ class Logfile:
 		if logfile == "":
 			print "ERROR : no file provided"
 			return(2)
-		try:
-			self.fd=open(logfile)
-		except:
-			print "ERROR : could not open file "+logfile
+                ext=self.logfile.split('.')[-1:][0]
+                if ext == "gz":
+                    Message.debug(PRGNAME,"opening file {0} as gzip".format(self.logfile))
+                    try:
+                        self.fd=gzip.open(self.logfile,'r')
+                    except:
+                        print "ERROR : could not open file "+str(self.logfile)
+                        raise IOError
+                else:
+                    Message.debug(PRGNAME,"opening file {0}".format(self.logfile))
+		    try:
+	        	self.fd=open(logfile)
+		    except:
+	        	print "ERROR : could not open file "+logfile
 			raise IOError
 
 	def readone(self):
