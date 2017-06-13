@@ -91,6 +91,10 @@ def parseargs(argv):
 						#print "using File "+file,
 				elif opt in "-H":
 						option['hour']=arg 
+                                                if ':' in option['hour']:
+                                                    option['minute']=option['hour'].split(':')[1]
+                                                    option['hour']=option['hour'].split(':')[0]
+                                                    Message.debug(PRGNAME,"time selected {0} {1}".format(option['hour'],option['minute']))
                                 elif opt in "-i":
                                                 option['picklein']=arg
 				elif opt in "-k":
@@ -663,7 +667,10 @@ def main(option):
 		if 'hour' in option:
 			if Log.hour != option['hour']:
 				continue
-			Message.debug(PRGNAME,'counted '+str(counted))
+			Message.debug(PRGNAME,'counted hour'+str(counted))
+                        if 'minute' in option and Log.minute != option['minute']:
+                                continue
+			Message.debug(PRGNAME,'counted minute'+str(counted))
 		counted+=1
 		#Q=Log.operation
 		#if Q == 'DELETE': 
