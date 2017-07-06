@@ -486,28 +486,21 @@ class Logfile:
             total={}
             output={}
             #i=date, j=hms, k=get/put/del... 0=# 1=count
+            option['tab']=0
             formatstring=[]
             for el in self.banner:
+                if len(el) > option['tab']:
+                    option['tab']=len(el)
                 formatstring.append(el)
+            print "::{0:4s}{1:8s}".format('day','time'),
             if option['format']=='csv'and option['operation'] != 'elapsed' :
-                formatstring=[]
-                for el in sorted(self.banner):
-                    formatstring.append(el)
-                #print "#{0:12s}{1:9s}{2:8s}{3:8s}{4:8s}{5:8s}".format('day','time','GET','PUT','DELETE','HEAD')
-                print "::{0:4s}{1:8s}".format('day','time'),
                 for i in formatstring:
-                    print i.ljust(10),
-                print
+                    print i.ljust(option['tab']),
             if option['format']=='csv'and option['operation'] == 'elapsed' :
-                #print "#{0:12s}{1:9s}{2:10s}{3:11s}{4:10s}{5:11s}{6:10s}{7:11s}{8:10s}{9:10s}".format('day','time','GET cnt','GET avg','PUT cnt','PUT avg','DEL cnt','DEL avg','HEAD cnt','HEAD avg')
-                formatstring=[]
-                for el in self.banner:
-                    formatstring.append(el)
-                    formatstring.append("avg")
-                print "::{0:4s}{1:8s}".format('day','time'),
                 for i in sorted(formatstring):
-                    print i.ljust(9),
-                print
+                    #print "{0}\t{1}\t".format(i,"avg").expandtabs(option['tab']),
+                    print i.ljust(option['tab']),"avg".ljust(option['tab']),
+            print
             if self.result.keys() == []:
                 Message.warning(PRGNAME+" No results found",None)
                 exit(0)
@@ -564,6 +557,8 @@ class Logfile:
 
 def display_results_print(list,date,time,option,banner=None):
 	""" get a list and display it while calculing stats"""
+        if not 'tab' in option:
+            option['tab']=10 
 	#print date+" "+time+" ",
         print "{0:6s}{1:8s}".format(date,time),
 	# total['GET'][0]=total ... GET[1]=count
@@ -591,19 +586,15 @@ def display_results_print(list,date,time,option,banner=None):
 			else:
 				avg=0
 		if option['format']=='csv'and option['operation'] == 'elapsed':
-			print "{0:10s}{1:10s}".format(count,str(avg)),
+                        print count.ljust(option['tab']),str(avg).ljust(option['tab']),
 		elif option['format']=='csv':
-			print "{0:10s}".format(count),
+                        print count.ljust(option['tab']),
 		else:
 			if option['operation'] == 'elapsed':
-				#display='{2}:{0}|{1}|\t'.format(avg,count,k)
 				display='{2}:{0}|{1}|'.format(avg,count,k)
-				##!## display='{0:30s}'.format(display)
 			else:
 				display='{0}|{1}\t'.format(count,k)
-				##!## display='{1}|{0}'.format(count,k)
-				##!## display='{0:25}'.format(display)
-			print display,
+			print display.ljust(30),
 		if k in list:
 			del list[k]
 	print
