@@ -286,15 +286,15 @@ class Logfile:
 			return True
 		elif self.kind=="sproxyd":
 			dict={}
-			Message.debug(PRGNAME,self.line)
-                        #if self.line.split()[7].split('"')[1] != 'end' :
+                        l=self.line.split()
 			try:
 				status=self.line.split()[7].split('"')[1]
 			except IndexError:
 				return 'LINEERROR'
 			if status != 'end':
+			    Message.debug(PRGNAME,"Not end line {0}".format(status))
                             return None
-			self.year=str(datetime.now().year)
+			self.year=l[0].split('-')[0]
 			self.month=self.line.split()[0]
 			self.day=str(self.line.split()[1])+'/'+self.month+'/'+self.year
 			self.hms=self.line.split()[2]
