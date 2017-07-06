@@ -556,6 +556,7 @@ class Logfile:
 
 
 def display_results_print(list,date,time,option,banner=None):
+        #print list
 	""" get a list and display it while calculing stats"""
         if not 'tab' in option:
             option['tab']=10 
@@ -565,17 +566,10 @@ def display_results_print(list,date,time,option,banner=None):
 	# csv need to have 0 value when entry is not found
 	#if option['tag']=='REST':
 	if option['tag']=='BLOB':
-	#print "{0:12s}{1:9s}{2:6s}{3:6s}{4:6s}{5:6s}".format('day','time','GET','PUT','DELETE','HEAD')
 		pattern=['GET','PUT','DEL','HEAD']
 	else:
-		#pattern=sorted(list.keys())
-		##!## pattern=sorted(banner)
                 pattern=sorted(list.keys())
-	#if option['format']=='csv'and option['operation'] == 'elapsed':
-	#	print "{0:10s}{1:10s}".format(count,str(avg)),
-	#elif option['format']=='csv':
-	#	print "{0:8s}".format(count),
-	for k in pattern:
+	for k in sorted(banner):
 		if k not in list:
 			count="0"
 			avg="0"
@@ -591,10 +585,10 @@ def display_results_print(list,date,time,option,banner=None):
                         print count.ljust(option['tab']),
 		else:
 			if option['operation'] == 'elapsed':
-				display='{2}:{0}|{1}|'.format(avg,count,k)
+				display='{0}:{1}|{2}|'.format(k,count,avg)
 			else:
-				display='{0}|{1}\t'.format(count,k)
-			print display.ljust(30),
+				display='{0}|{1}\t'.format(k,count)
+			print display.ljust(25),
 		if k in list:
 			del list[k]
 	print
