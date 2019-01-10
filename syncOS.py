@@ -15,6 +15,7 @@ import time
 from time import localtime,time,sleep,mktime
 import datetime
 from datetime import datetime
+import shlex
 
 #main
 
@@ -305,7 +306,8 @@ class Blkid():
 			args=line.split(':')[1]
 			#print(device,args)
 			self.blkstruct[device]={}
-			args=args.split(' ')
+			#args=args.split(' ')
+			args=shlex.split(args)
 			for tuple in args:
 				Message.debug(PRGNAME,"tuple blk : "+str(tuple))
 				if len(tuple) == 0:
@@ -326,11 +328,12 @@ class Blkid():
 		return self.blkstruct
 
 	def get_device_label(self,option):
-		print('toto')
 		for device in self.blkstruct:
-			if self.blkstruct[device]['TYPE'] not in option['TYPE']:
+			if not 'TYPE' in self.blkstruct[device]:
 				continue
-			if 'LABEL' in self.blkstruct[device]:
+			elif self.blkstruct[device]['TYPE'] not in option['TYPE']:
+				continue
+			elif 'LABEL' in self.blkstruct[device]:
 				print(device+" : "+self.blkstruct[device]['LABEL'])
 			else:
 				print(device)
@@ -477,7 +480,7 @@ def dump_fs(option,blk):
 		run=run.split()
 		ps=subprocess.Popen(run,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
 		Message.info(PRGNAME,"Attempting to dump "+part+" on file "+output)
-		timestart=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
+		timestart=str(datetime.now().hour)+":"+str("{:02d}".format(datetime.now().minute))+":"+str(datetime.now().second)
 		timestart2=localtime()
 		Message.info(PRGNAME,"Starting at "+timestart)
 		# Prepare terminal settings and init variables
@@ -513,7 +516,7 @@ def dump_fs(option,blk):
 				# limit display chars to avoid crash on strange ones with print
 				string=re.sub("([^a-zA-Z0-9_/-])",'',string)
 				# Add time display 
-				timecur="["+str(datetime.now().hour)+":"+str(datetime.now().minute)+"]"
+				timecur="["+str(datetime.now().hour)+":"+str("{:02d}".format(datetime.now().minute))+"]"
 				print("\r"+timecur+percent+" "+string,sep='',end='')
 				sleep(.001)
 				line_size=term_size
@@ -536,7 +539,7 @@ def dump_fs(option,blk):
 			Message.error(PRGNAME,"fsarchiver return an error")
 			print(stderr.decode("utf-8"))
 		
-		timeend=str(datetime.now().hour)+":"+str(datetime.now().minute)+":"+str(datetime.now().second)
+		timeend=str(datetime.now().hour)+":"+str("{:02d}".format(datetime.now().minute))+":"+str(datetime.now().second)
 		timeend2=localtime()	
 		diff=mktime(timeend2)-mktime(timestart2)
 		Message.info(PRGNAME,'End Job at '+timeend+" ("+str(diff)+" seconds) "+str(count)+" files dumped")
