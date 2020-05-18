@@ -6,6 +6,7 @@ COUNT=0 # endless
 NAME=file
 DEL=0 
 SLEEP=1
+DEBUG=0 
 
 function usage() {
 cat << fin
@@ -36,7 +37,7 @@ case $sarg in
       exit ;;
   n)  NAME=$OPTARG ;;
   r)  DEL=1 ;;
-  s)  SIZE=$OPTARG ;;
+  s)  SIZE=${OPTARG//[!0-9]/} ;;
   *)  echo "ERROR : Bad option or misusage"
       usage
       exit ;;
@@ -57,6 +58,9 @@ do
       echo "Count file processed ending at $D"
       break
     fi
+  fi
+  if [ $DEBUG -eq 1 ] ; then
+    echo -n "Creating $NAME : "
   fi
   dd if=/dev/urandom of=${NAME}-${D} count=$SIZE bs=1M 2>&1 | grep -v records
   NB=$((NB + 1))
