@@ -17,6 +17,16 @@ import sys
 import getopt
 import pickle
 import gzip
+import signal
+import sys
+import shlex
+
+def signal_handler(signal, frame):
+        print('You pressed Ctrl+C!')
+        sys.exit(0)
+#signal.signal(signal.SIGINT, signal_handler)
+#print('Press Ctrl+C')
+#signal.pause()
 
 
 PRGNAME=os.path.basename(sys.argv[0])
@@ -24,7 +34,7 @@ PRGNAME=os.path.basename(sys.argv[0])
 
 #default option count rest command
 option={'operation':'rest'}
-option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd','chordbucket']
+option['valid_kind']=['apache','dovecot','chunkapi','restapi','sproxyd','chordbucket','kind','nginx']
 option['file']=""
 option['format']="list"
 option['tag']='REST'
@@ -43,6 +53,7 @@ def usage():
 		-k <type>   specify log type (see below)
 		-o <option> Use specific option (see below) 
 		-p <file>   Save data in pickle format (-i to load) 
+                -s          Specify that log is using syslog (used for Scality node logs going through syslog)
                 -T <tag>    TAG to search by default REST 
 		-u <unit>   Unit to sort data : hour, minute or second
                 -v          Verbose mode (Additionnal messages less verbose that debug)
@@ -61,7 +72,7 @@ def usage():
 
 def parseargs(argv):
 		try:
-				opts, args = getopt.getopt(argv, "c:dD:hH:i:f:k:o:p:T:u:vx", ["help"])
+				opts, args = getopt.getopt(argv, "c:dD:hH:i:f:k:o:p:St:T:u:vx", ["help"])
 		except getopt.GetoptError:
 				usage()
 				sys.exit(2)
@@ -111,6 +122,10 @@ def parseargs(argv):
 						option['operation']=arg
                                 elif opt in "-p":
                                                 option['pickleout']=arg
+                                elif opt in "-t":
+                                                option['tail']=arg
+                                elif opt in "-S":
+                                                option['syslog']=arg
 				elif opt in "-T":
 						option['tag']=arg
 				elif opt in "-v":
@@ -227,6 +242,10 @@ class Logfile:
 		    except:
 	        	print "ERROR : could not open file "+logfile
 			raise IOError
+                if 'syslog' in option:
+                    self.syslog = True
+                else:
+                    self.syslog = False
 
 	def readone(self):
             l=self.fd.readline()
@@ -315,20 +334,39 @@ class Logfile:
 		elif self.kind=="chunkapi":
                         dict={}
                         l=self.line.split()
-                        if l[2] != self.kind:
-                            Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
-                            return None
-                        type=l[4].split('=')[1].split('"')[1]
-                        if type != 'end':
-                            return None
-                        self.year=l[0][0:4]
-                        self.month=l[0][4:6]
-                        self.day=l[0][6:8]
-                        self.hms=l[1]
-                        self.ms=self.hms.split('.')[1]
-                        self.hms=self.hms.split('.')[0]
-                        self.hour,self.minute,self.second=self.hms.split(':')
-                        self.payload=l[3:]
+                        if self.syslog:
+                            if l[5] != self.kind:
+                                Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
+                                return None
+                            type=l[7].split('=')[1].split('"')[1]
+                            if type != 'end':
+                                return None
+                            # year not in syslog format, spoofing with current one
+                            self.year=datetime.now().strftime('%Y')
+                            self.month='{:02d}'.format(datetime.strptime(l[0],'%b').month)
+                            self.day=l[1]
+                            self.hms=l[2]
+                            # not in syslog
+                            self.ms=0
+                            #self.hms=self.hms.split('.')[0]
+                            self.hour,self.minute,self.second=self.hms.split(':')
+                            self.payload=l[6:]
+                            #Message.info(PRGNAME,"Payload {}".format(self.payload))
+                        else:
+                            if l[2] != self.kind:
+                                Message.warning(PRGNAME,"suspect Line, ignoring : "+l[2])
+                                return None
+                            type=l[4].split('=')[1].split('"')[1]
+                            if type != 'end':
+                                return None
+                            self.year=l[0][0:4]
+                            self.month=l[0][4:6]
+                            self.day=l[0][6:8]
+                            self.hms=l[1]
+                            self.ms=self.hms.split('.')[1]
+                            self.hms=self.hms.split('.')[0]
+                            self.hour,self.minute,self.second=self.hms.split(':')
+                            self.payload=l[3:]
 			for k in self.payload:
 			    dict[k.split('=')[0]]=k.split('=')[1].strip('"')
                         try:
@@ -424,7 +462,22 @@ class Logfile:
                              return 'CHORDBUCKET ERROR'
                         #Message.debug(PRGNAME,dict)
                         return True
-
+                elif self.kind =="nginx":
+                    #Message.debug(PRGNAME,"New line : {}".format(self.line))
+                    m=('Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec')
+                    l=shlex.split(self.line) 
+                    self.year=l[3].lstrip('[').split('/')[2].split(':')[0]
+                    m=l[3].lstrip('[').split('/')[1]
+                    self.hms=":".join(l[3].split(':')[1:])
+                    self.month=m.index(m)+1
+                    self.day=l[3].lstrip('[').split('/')[0]
+                    self.elapsed=float(l[10])*1000 # time in sec to convert in ms
+                    if self.elapsed > 2000:
+                        print l
+                    self.returncode=l[6]
+                    self.http_code=l[6]
+                    self.operation=l[5].split()[0]
+                    return True
 		else:
 			raise valueError
 
@@ -436,6 +489,11 @@ class Logfile:
 			return 
 		else:
 			raise Exception("Unit not valid")
+
+
+        def print_result_debug(self):
+            print self.result.keys()
+
 
         #def aggragate_result(self,data,time,operation,elapsed):
         def aggragate_result(self,operation):
@@ -553,7 +611,7 @@ class Logfile:
                             self.banner.append(k)
 	    if self.unit != 'second':
 	        display_results_print(total,i,j,option,self.banner)
-
+                self.result={}
 
 def display_results_print(list,date,time,option,banner=None):
         #print list
@@ -629,10 +687,16 @@ displaydate=""
 prevhms=-7
 def main(option):
 	Message.debug(PRGNAME,":"+option['operation']+":")
+        if 'picklein' in option:
+	    Log=Logfile(option['picklein'],kind,option)
+	    Log.load_pickle(option['picklein'])
+	    Log.display_results(option)
+	    exit(0)
 	Log=Logfile(option['file'],kind,option)
 	result={}
 	counted=0 
-	count=0 
+	count=0
+        timebase=datetime.now()
         if 'unit' in option:
             Log.unit(option['unit'])
         else:
@@ -642,10 +706,6 @@ def main(option):
 	while True:
 		l=Log.readone() 
 		count+=1
-                if 'picklein' in option:
-			Log.load_pickle(option['picklein'])
-			Log.display_results(option)
-			exit(0)
 
 		if not l:
 			""" no more lines in the file """ 
@@ -665,6 +725,13 @@ def main(option):
 			else:
 				Message.info(PRGNAME,"no line selected")
 			break
+                if "tail" in option:
+                    timenow=datetime.now()
+                    elapsed=int(timenow.strftime('%s'))-int(timebase.strftime('%s'))
+                    if elapsed > int(option["tail"]):
+			Message.debug(PRGNAME,"Reaching tail {0}"+option['tail'])
+                        Log.display_results(option)
+                        timebase=datetime.now()
 		linestatus=Log.prepare()
                 if linestatus == None :
                     continue
@@ -696,7 +763,7 @@ def main(option):
 		#if Q == 'DELETE': 
 		#    Q='DEL'
                 Q=Log.getop()
-		Message.debug(PRGNAME,"Op is : "+Q+':'+str(Log.elapsed))
+		Message.debug(PRGNAME,"Op is : "+Q+' :'+str(Log.elapsed))
 		#result=process_elapsed_bydate(result,Log.day,Log.hms,Q,int(Log.elapsed))
 		Log.aggragate_result(Q)
 	# to treat where no data
